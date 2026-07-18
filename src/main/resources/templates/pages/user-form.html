@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{layout :: layout(~{::section})}">
+<body>
+<section th:fragment="section">
+    <div class="page-toolbar">
+        <div>
+            <h2 class="page-heading" th:text="${mode == 'edit'} ? 'Edit User' : 'Add User'">Add User</h2>
+            <p class="muted">Students use Grade · Teachers use Room / Class</p>
+        </div>
+        <a class="btn btn-ghost" th:href="@{/admin/users}">Back</a>
+    </div>
+
+    <article class="form-card">
+        <form th:action="${mode == 'edit'} ? @{/admin/users/{id}/update(id=${user.uuid})} : @{/admin/users}"
+              method="post"
+              class="stack-form"
+              data-role-form>
+            <label>Name <input name="name" required th:value="${user != null} ? ${user.name} : ''"></label>
+            <label>Email <input type="email" name="email" required th:value="${user != null} ? ${user.email} : ''"></label>
+            <label th:if="${mode != 'edit'}">Password
+                <input type="password" name="password" minlength="6" required>
+            </label>
+            <label th:if="${mode == 'edit'}">Password
+                <input type="password" name="password" minlength="6" placeholder="Leave blank to keep">
+            </label>
+            <label>Role
+                <select name="roleUuid" required data-role-select>
+                    <option value="" disabled th:selected="${user == null}">Select role</option>
+                    <option th:each="role : ${roles}"
+                            th:value="${role.uuid}"
+                            th:text="${role.name}"
+                            th:attr="data-role-name=${role.name.name()}"
+                            th:selected="${user != null and user.roleUuid == role.uuid}">ADMIN</option>
+                </select>
+            </label>
+            <label>School
+                <select name="schoolUuid" required>
+                    <option value="" disabled th:selected="${user == null}">Select school</option>
+                    <option th:each="school : ${schools}"
+                            th:value="${school.uuid}"
+                            th:text="${school.name}"
+                            th:selected="${user != null and user.schoolUuid == school.uuid}">School</option>
+                </select>
+            </label>
+            <label data-field-class>Class
+                <select name="classUuid">
+                    <option value="">None</option>
+                    <option th:each="item : ${classes}"
+                            th:value="${item.uuid}"
+                            th:text="${item.name + ' (' + item.schoolName + ')'}"
+                            th:selected="${user != null and user.classUuid == item.uuid}">Class</option>
+                </select>
+            </label>
+            <label data-field-grade hidden>Grade (student)
+                <input name="grade" placeholder="e.g. Grade 10"
+                       th:value="${user != null} ? ${user.grade} : ''">
+            </label>
+            <label data-field-room hidden>Room / Class (teacher)
+                <input name="room" placeholder="e.g. Room A-12"
+                       th:value="${user != null} ? ${user.room} : ''">
+            </label>
+            <div class="modal-actions">
+                <a class="btn btn-ghost" th:href="@{/admin/users}">Cancel</a>
+                <button type="submit" class="btn btn-dark" th:text="${mode == 'edit'} ? 'Save' : 'Create'">Create</button>
+            </div>
+        </form>
+    </article>
+</section>
+</body>
+</html>

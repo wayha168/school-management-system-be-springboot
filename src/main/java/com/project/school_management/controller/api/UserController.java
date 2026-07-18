@@ -5,6 +5,7 @@ import java.util.UUID;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -18,6 +19,7 @@ import com.project.school_management.dto.ApiResponse;
 import com.project.school_management.dto.user.UserRequest;
 import com.project.school_management.dto.user.UserResponse;
 import com.project.school_management.dto.user.UserUpdateRequest;
+import com.project.school_management.exception.ErrorRuntime;
 import com.project.school_management.service.user.UserService;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -28,7 +30,7 @@ import jakarta.validation.Valid;
 @RestController
 @RequestMapping("/api/users")
 @Tag(name = "Users")
-@SecurityRequirement(name = "basicAuth")
+@SecurityRequirement(name = "bearerAuth")
 public class UserController {
 
     private final UserService userService;
@@ -38,36 +40,71 @@ public class UserController {
     }
 
     @PostMapping
+    @PreAuthorize("hasAuthority('USER_WRITE')")
     @Operation(summary = "Create user")
     public ResponseEntity<ApiResponse<UserResponse>> create(@Valid @RequestBody UserRequest request) {
-        return ResponseEntity.status(HttpStatus.CREATED)
-                .body(ApiResponse.ok("User created", userService.create(request)));
+        try {
+            return ResponseEntity.status(HttpStatus.CREATED)
+                    .body(ApiResponse.ok("User created", userService.create(request)));
+        } catch (RuntimeException ex) {
+            throw ex;
+        } catch (Exception ex) {
+            throw new ErrorRuntime("Create user failed", ex);
+        }
     }
 
     @GetMapping
+    @PreAuthorize("hasAuthority('USER_READ')")
     @Operation(summary = "List users")
     public ResponseEntity<ApiResponse<List<UserResponse>>> getAll() {
-        return ResponseEntity.ok(ApiResponse.ok("Users fetched", userService.getAll()));
+        try {
+            return ResponseEntity.ok(ApiResponse.ok("Users fetched", userService.getAll()));
+        } catch (RuntimeException ex) {
+            throw ex;
+        } catch (Exception ex) {
+            throw new ErrorRuntime("Fetch users failed", ex);
+        }
     }
 
     @GetMapping("/{id}")
+    @PreAuthorize("hasAuthority('USER_READ')")
     @Operation(summary = "Get user by id")
     public ResponseEntity<ApiResponse<UserResponse>> getById(@PathVariable UUID id) {
-        return ResponseEntity.ok(ApiResponse.ok("User fetched", userService.getById(id)));
+        try {
+            return ResponseEntity.ok(ApiResponse.ok("User fetched", userService.getById(id)));
+        } catch (RuntimeException ex) {
+            throw ex;
+        } catch (Exception ex) {
+            throw new ErrorRuntime("Fetch user failed", ex);
+        }
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasAuthority('USER_WRITE')")
     @Operation(summary = "Update user")
     public ResponseEntity<ApiResponse<UserResponse>> update(
             @PathVariable UUID id,
             @Valid @RequestBody UserUpdateRequest request) {
-        return ResponseEntity.ok(ApiResponse.ok("User updated", userService.update(id, request)));
+        try {
+            return ResponseEntity.ok(ApiResponse.ok("User updated", userService.update(id, request)));
+        } catch (RuntimeException ex) {
+            throw ex;
+        } catch (Exception ex) {
+            throw new ErrorRuntime("Update user failed", ex);
+        }
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasAuthority('USER_WRITE')")
     @Operation(summary = "Delete user")
     public ResponseEntity<ApiResponse<Void>> delete(@PathVariable UUID id) {
-        userService.delete(id);
-        return ResponseEntity.ok(ApiResponse.ok("User deleted", null));
+        try {
+            userService.delete(id);
+            return ResponseEntity.ok(ApiResponse.ok("User deleted", null));
+        } catch (RuntimeException ex) {
+            throw ex;
+        } catch (Exception ex) {
+            throw new ErrorRuntime("Delete user failed", ex);
+        }
     }
 }

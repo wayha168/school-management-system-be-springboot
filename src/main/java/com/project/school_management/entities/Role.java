@@ -7,6 +7,9 @@ import java.util.UUID;
 
 import com.project.school_management.enums.RoleName;
 
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -35,6 +38,7 @@ public class Role {
     private UUID uuid;
 
     @Enumerated(EnumType.STRING)
+    @JdbcTypeCode(SqlTypes.VARCHAR)
     @Column(name = "name", nullable = false, unique = true, length = 50)
     private RoleName name;
 

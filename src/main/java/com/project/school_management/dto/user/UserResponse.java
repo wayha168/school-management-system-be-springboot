@@ -22,6 +22,8 @@ public class UserResponse {
     private String schoolName;
     private UUID classUuid;
     private String className;
+    private String grade;
+    private String room;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
@@ -36,6 +38,8 @@ public class UserResponse {
                 .schoolName(user.getSchool() != null ? user.getSchool().getName() : null)
                 .classUuid(user.getSchoolClass() != null ? user.getSchoolClass().getUuid() : null)
                 .className(user.getSchoolClass() != null ? user.getSchoolClass().getName() : null)
+                .grade(user.getGrade())
+                .room(user.getRoom())
                 .createdAt(user.getCreatedAt())
                 .updatedAt(user.getUpdatedAt())
                 .build();

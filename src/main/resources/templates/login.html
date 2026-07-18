@@ -1,31 +1,58 @@
 <!DOCTYPE html>
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login | School Management</title>
     <link rel="stylesheet" th:href="@{/css/app.css}">
 </head>
+
 <body class="auth-body">
-<main class="auth-card">
-    <p class="brand">School Management</p>
-    <h1>Sign in</h1>
-    <p class="muted">Access the dashboard and Swagger API console.</p>
+    <main class="auth-card">
+        <p class="brand">School Management</p>
+        <h1 class="header-login">Admin sign in</h1>
 
-    <div th:if="${param.error}" class="alert error">Invalid email or password.</div>
-    <div th:if="${param.logout}" class="alert ok">You have been logged out.</div>
+        <div th:if="${param.error}" class="alert error">Invalid email or password.</div>
+        <div th:if="${param.logout}" class="alert ok">You have been logged out.</div>
 
-    <form th:action="@{/login}" method="post">
-        <label for="username">Email</label>
-        <input id="username" name="username" type="email" required placeholder="admin@school.com">
+        <form th:action="@{/login}" method="post">
+            <label for="username">Email</label>
+            <input id="username" name="username" type="email" required placeholder="admin@school.com" autocomplete="username">
 
-        <label for="password">Password</label>
-        <input id="password" name="password" type="password" required placeholder="••••••••">
+            <label for="password">Password</label>
+            <div class="password-field">
+                <input id="password" name="password" type="password" required placeholder="••••••••" autocomplete="current-password">
+                <button type="button"
+                        class="password-toggle"
+                        id="togglePassword"
+                        aria-label="Show password"
+                        aria-controls="password"
+                        aria-pressed="false"
+                        title="Show password">
+                    <svg class="icon-eye" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                        <circle cx="12" cy="12" r="3"></circle>
+                    </svg>
+                    <svg class="icon-eye-off" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" hidden>
+                        <path d="M17.94 17.94A10.94 10.94 0 0 1 12 20c-7 0-11-8-11-8a21.77 21.77 0 0 1 5.06-5.94"></path>
+                        <path d="M9.9 4.24A10.94 10.94 0 0 1 12 4c7 0 11 8 11 8a21.8 21.8 0 0 1-2.16 3.19"></path>
+                        <path d="M14.12 14.12a3 3 0 1 1-4.24-4.24"></path>
+                        <line x1="1" y1="1" x2="23" y2="23"></line>
+                    </svg>
+                </button>
+            </div>
 
-        <button type="submit">Login</button>
-    </form>
+            <button type="submit" class="login-submit">Login</button>
+        </form>
 
-    <p class="hint">Default: admin@school.com / admin123</p>
-</main>
+        <!-- <div class="seed-accounts">
+            <p class="seed-title">Template accounts</p>
+            <p><strong>Super Admin</strong> — superadmin@school.com / superadmin123</p>
+            <p><strong>Admin</strong> — admin@school.com / admin123</p>
+        </div> -->
+    </main>
+    <script th:src="@{/js/password-toggle.js}"></script>
 </body>
+
 </html>

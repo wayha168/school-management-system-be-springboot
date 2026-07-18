@@ -1,0 +1,28 @@
+<aside class="sidebar" th:fragment="sidebar"
+       xmlns:th="http://www.thymeleaf.org"
+       xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+    <div class="sidebar-brand">
+        <p class="brand">School Management</p>
+        <span>Admin console</span>
+    </div>
+    <nav class="sidebar-nav">
+        <a th:href="@{/admin/dashboard}"
+           th:classappend="${activePage == 'dashboard'} ? ' active'">Dashboard</a>
+        <a th:href="@{/admin/schools}"
+           sec:authorize="hasAuthority('SCHOOL_READ')"
+           th:classappend="${activePage == 'schools'} ? ' active'">Schools</a>
+        <a th:href="@{/admin/users}"
+           sec:authorize="hasAuthority('USER_READ')"
+           th:classappend="${activePage == 'users'} ? ' active'">Users</a>
+        <a th:href="@{/admin/classes}"
+           sec:authorize="hasAuthority('CLASS_READ')"
+           th:classappend="${activePage == 'classes'} ? ' active'">Classes</a>
+        <a th:href="@{/admin/roles}"
+           sec:authorize="hasAuthority('ROLES_READ')"
+           th:classappend="${activePage == 'roles'} ? ' active'">Roles</a>
+        <a th:href="@{/admin/permissions}"
+           sec:authorize="hasAuthority('ROLES_READ')"
+           th:classappend="${activePage == 'permissions'} ? ' active'">Permissions</a>
+        <a th:href="@{/swagger-ui.html}" target="_blank" rel="noopener">API Docs</a>
+    </nav>
+</aside>

@@ -1,0 +1,56 @@
+<header class="header" th:fragment="header" xmlns:th="http://www.thymeleaf.org">
+    <div class="header-title">
+        <p class="header-eyebrow" th:text="${pageTitle}">Dashboard</p>
+        <h1 th:text="${account != null ? account.roleLabel : 'Admin'}">SUPERADMIN</h1>
+    </div>
+
+    <div class="header-actions" th:if="${account != null}">
+        <span class="online-pill" title="Users online right now">
+            <span class="dot online-dot"></span>
+            <strong data-online-count th:text="${onlineCount != null} ? ${onlineCount} : '0'">0</strong>
+            <span>online</span>
+        </span>
+        <button type="button" class="icon-btn" aria-label="Notifications" title="Notifications">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+            </svg>
+        </button>
+
+        <div class="profile-menu" data-profile-menu>
+            <button type="button"
+                    class="profile-trigger btn btn-soft"
+                    data-profile-toggle
+                    aria-haspopup="true"
+                    aria-expanded="false">
+                <span class="profile-avatar" th:text="${#strings.substring(account.name,0,1)}">A</span>
+                <span class="profile-meta">
+                    <strong th:text="${account.name}">Admin</strong>
+                    <small th:text="${account.roleLabel}">ADMIN</small>
+                </span>
+                <svg class="profile-caret" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                    <polyline points="6 9 12 15 18 9"></polyline>
+                </svg>
+            </button>
+
+            <div class="profile-dropdown" data-profile-dropdown hidden>
+                <div class="profile-dropdown-head">
+                    <p class="profile-dropdown-name" th:text="${account.name}">Admin</p>
+                    <p class="profile-dropdown-email" th:text="${account.email}">admin@school.com</p>
+                    <span class="role-badge"
+                          th:classappend="' role-' + ${#strings.toLowerCase(account.roleLabel)}"
+                          th:text="${account.roleLabel}">ADMIN</span>
+                </div>
+                <div class="profile-dropdown-body">
+                    <p><span>School</span><strong th:text="${account.schoolName} ?: '-'">Demo School</strong></p>
+                </div>
+                <div class="profile-dropdown-actions">
+                    <a class="btn btn-ghost btn-block" th:href="@{/admin/dashboard}">View dashboard</a>
+                    <form th:action="@{/logout}" method="post">
+                        <button class="btn btn-danger-soft btn-block" type="submit">Logout</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>

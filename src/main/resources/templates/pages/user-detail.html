@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security"
+      th:replace="~{layout :: layout(~{::section})}">
+<body>
+<section th:fragment="section">
+    <div class="page-toolbar">
+        <div>
+            <h2 class="page-heading">User details</h2>
+            <p class="muted" th:text="${user.email}">email</p>
+        </div>
+        <div class="page-toolbar-actions row">
+            <a class="btn btn-ghost" th:href="@{/admin/users}">Back</a>
+            <a class="btn btn-dark"
+               sec:authorize="hasAuthority('USER_WRITE')"
+               th:href="@{/admin/users/{id}/edit(id=${user.uuid})}">Edit</a>
+        </div>
+    </div>
+
+    <article class="form-card">
+        <div class="detail-grid">
+            <div><span class="label">ID</span><p><code th:text="${user.uuid}">uuid</code></p></div>
+            <div><span class="label">Name</span><p th:text="${user.name}">Name</p></div>
+            <div><span class="label">Email</span><p th:text="${user.email}">email</p></div>
+            <div>
+                <span class="label">Role</span>
+                <p><span class="role-badge"
+                         th:classappend="${user.role != null} ? ' role-' + ${#strings.toLowerCase(user.role.name())} : ''"
+                         th:text="${user.role}">ADMIN</span></p>
+            </div>
+            <div><span class="label">School</span><p th:text="${user.schoolName}">School</p></div>
+            <div><span class="label">Class</span><p th:text="${user.className} ?: '—'">Class</p></div>
+            <div th:if="${user.role != null and user.role.name() == 'STUDENT'}">
+                <span class="label">Grade</span>
+                <p th:text="${user.grade} ?: '—'">Grade</p>
+            </div>
+            <div th:if="${user.role != null and user.role.name() == 'TEACHER'}">
+                <span class="label">Room / Class</span>
+                <p th:text="${user.room} ?: '—'">Room</p>
+            </div>
+            <div>
+                <span class="label">Online</span>
+                <p>
+                    <span class="online-status"
+                          th:classappend="${online} ? ' online' : ' offline'"
+                          data-presence-email
+                          th:attr="data-presence-email=${user.email}">
+                        <span class="dot"></span>
+                        <span class="presence-label" th:text="${online} ? 'Online' : 'Offline'">Offline</span>
+                    </span>
+                </p>
+            </div>
+            <div><span class="label">Status</span><p class="status-text status-active">Active</p></div>
+        </div>
+    </article>
+</section>
+</body>
+</html>

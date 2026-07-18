@@ -31,4 +31,10 @@ public class UserRequest {
     private UUID schoolUuid;
 
     private UUID classUuid;
+
+    /** Student grade */
+    private String grade;
+
+    /** Teacher room / classroom */
+    private String room;
 }

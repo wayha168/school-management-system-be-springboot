@@ -9,12 +9,15 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import com.project.school_management.entities.User;
+import com.project.school_management.enums.RoleName;
 
 public interface UserRepository extends JpaRepository<User, UUID> {
 
     Optional<User> findByEmail(String email);
 
     boolean existsByEmail(String email);
+
+    long countByRole_Name(RoleName roleName);
 
     @Query("""
             SELECT u FROM User u

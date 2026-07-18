@@ -7,6 +7,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.project.school_management.dto.user.DataUser;
 import com.project.school_management.dto.user.UserRequest;
 import com.project.school_management.dto.user.UserResponse;
 import com.project.school_management.dto.user.UserUpdateRequest;
@@ -15,10 +16,12 @@ import com.project.school_management.entities.SchoolClass;
 import com.project.school_management.entities.SchoolMag;
 import com.project.school_management.entities.User;
 import com.project.school_management.exception.ExceptionNotFound;
+import com.project.school_management.exception.UserNotFound;
 import com.project.school_management.repository.RoleRepository;
 import com.project.school_management.repository.SchoolClassRepository;
 import com.project.school_management.repository.SchoolRepository;
 import com.project.school_management.repository.UserRepository;
+import com.project.school_management.service.permission.PermissionService;
 
 @Service
 @Transactional
@@ -29,18 +32,21 @@ public class UserServiceImpl implements UserService {
     private final SchoolRepository schoolRepository;
     private final SchoolClassRepository schoolClassRepository;
     private final PasswordEncoder passwordEncoder;
+    private final PermissionService permissionService;
 
     public UserServiceImpl(
             UserRepository userRepository,
             RoleRepository roleRepository,
             SchoolRepository schoolRepository,
             SchoolClassRepository schoolClassRepository,
-            PasswordEncoder passwordEncoder) {
+            PasswordEncoder passwordEncoder,
+            PermissionService permissionService) {
         this.userRepository = userRepository;
         this.roleRepository = roleRepository;
         this.schoolRepository = schoolRepository;
         this.schoolClassRepository = schoolClassRepository;
         this.passwordEncoder = passwordEncoder;
+        this.permissionService = permissionService;
     }
 
     @Override
@@ -56,6 +62,8 @@ public class UserServiceImpl implements UserService {
         user.setRole(findRole(request.getRoleUuid()));
         user.setSchool(findSchool(request.getSchoolUuid()));
         user.setSchoolClass(resolveClass(request.getClassUuid()));
+        user.setGrade(blankToNull(request.getGrade()));
+        user.setRoom(blankToNull(request.getRoom()));
         User saved = userRepository.save(user);
         return UserResponse.from(findUser(saved.getUuid()));
     }
@@ -90,6 +98,8 @@ public class UserServiceImpl implements UserService {
         user.setRole(findRole(request.getRoleUuid()));
         user.setSchool(findSchool(request.getSchoolUuid()));
         user.setSchoolClass(resolveClass(request.getClassUuid()));
+        user.setGrade(blankToNull(request.getGrade()));
+        user.setRoom(blankToNull(request.getRoom()));
         userRepository.save(user);
         return UserResponse.from(findUser(id));
     }
@@ -97,14 +107,25 @@ public class UserServiceImpl implements UserService {
     @Override
     public void delete(UUID id) {
         if (!userRepository.existsById(id)) {
-            throw new ExceptionNotFound("User not found: " + id);
+            throw new UserNotFound("User not found: " + id);
         }
         userRepository.deleteById(id);
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public DataUser getAccountByEmail(String email) {
+        User user = userRepository.findDetailedByEmail(email)
+                .orElseThrow(() -> new UserNotFound("Account not found: " + email));
+        List<String> permissions = user.getRole() == null
+                ? List.of()
+                : permissionService.getPermissionsForRole(user.getRole().getName());
+        return DataUser.from(user, permissions);
+    }
+
     private User findUser(UUID id) {
         return userRepository.findDetailedById(id)
-                .orElseThrow(() -> new ExceptionNotFound("User not found: " + id));
+                .orElseThrow(() -> new UserNotFound("User not found: " + id));
     }
 
     private Role findRole(UUID id) {
@@ -123,5 +144,9 @@ public class UserServiceImpl implements UserService {
         }
         return schoolClassRepository.findById(classUuid)
                 .orElseThrow(() -> new ExceptionNotFound("Class not found: " + classUuid));
+    }
+
+    private static String blankToNull(String value) {
+        return value == null || value.isBlank() ? null : value.trim();
     }
 }

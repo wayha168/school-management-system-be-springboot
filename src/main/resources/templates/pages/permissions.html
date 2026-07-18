@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security"
+      th:replace="~{layout :: layout(~{::section})}">
+<body>
+<section th:fragment="section">
+    <div class="page-toolbar">
+        <div>
+            <h2 class="page-heading">Permissions</h2>
+            <p class="muted">Assign and manage role permissions</p>
+        </div>
+        <div class="page-toolbar-actions">
+            <input type="search"
+                   class="search-input"
+                   placeholder="Search permission..."
+                   data-table-search="permissions-table"
+                   aria-label="Search permissions">
+        </div>
+    </div>
+
+    <div class="crud-grid" sec:authorize="hasAuthority('ROLES_WRITE')">
+        <article class="panel-card">
+            <h3>Assign</h3>
+            <p class="muted">Create a role–permission link.</p>
+            <form th:action="@{/admin/permissions/assign}" method="post" class="stack-form">
+                <label>
+                    Role
+                    <select name="roleUuid" required>
+                        <option value="" disabled selected>Select role</option>
+                        <option th:each="role : ${roles}"
+                                th:value="${role.uuid}"
+                                th:text="${role.name}">ADMIN</option>
+                    </select>
+                </label>
+                <label>
+                    Permission
+                    <select name="permission" required>
+                        <option value="" disabled selected>Select permission</option>
+                        <option th:each="code : ${allPermissionCodes}"
+                                th:value="${code}"
+                                th:text="${code}">SCHOOL_READ</option>
+                    </select>
+                </label>
+                <button type="submit" class="btn">Assign</button>
+            </form>
+        </article>
+
+        <article class="panel-card">
+            <h3>Revoke</h3>
+            <p class="muted">Delete one permission from a role.</p>
+            <form th:action="@{/admin/permissions/revoke}" method="post" class="stack-form">
+                <label>
+                    Role
+                    <select name="roleUuid" required>
+                        <option value="" disabled selected>Select role</option>
+                        <option th:each="role : ${roles}"
+                                th:value="${role.uuid}"
+                                th:text="${role.name}">ADMIN</option>
+                    </select>
+                </label>
+                <label>
+                    Permission
+                    <select name="permission" required>
+                        <option value="" disabled selected>Select permission</option>
+                        <option th:each="code : ${allPermissionCodes}"
+                                th:value="${code}"
+                                th:text="${code}">SCHOOL_READ</option>
+                    </select>
+                </label>
+                <button type="submit" class="btn btn-danger-soft">Revoke</button>
+            </form>
+        </article>
+
+        <article class="panel-card panel-wide">
+            <h3>Replace</h3>
+            <p class="muted">Update (overwrite) all permissions for a role.</p>
+            <form th:action="@{/admin/permissions/replace}" method="post" class="stack-form">
+                <label>
+                    Role
+                    <select name="roleUuid" required>
+                        <option value="" disabled selected>Select role</option>
+                        <option th:each="role : ${roles}"
+                                th:value="${role.uuid}"
+                                th:text="${role.name}">ADMIN</option>
+                    </select>
+                </label>
+                <div class="check-grid">
+                    <label class="check-item" th:each="code : ${allPermissionCodes}">
+                        <input type="checkbox" name="permissions" th:value="${code}">
+                        <span th:text="${code}">SCHOOL_READ</span>
+                    </label>
+                </div>
+                <button type="submit" class="btn btn-soft">Save permissions</button>
+            </form>
+        </article>
+    </div>
+
+    <div class="table-wrap">
+        <table class="data-table" id="permissions-table">
+            <thead>
+            <tr>
+                <th>ID</th>
+                <th>Code</th>
+                <th>Module</th>
+                <th>Action</th>
+                <th>Status</th>
+                <th>Assigned roles</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr th:each="item, stat : ${permissions}"
+                th:attr="data-search=${item.code + ' ' + item.module + ' ' + item.action}">
+                <td><code class="id-chip" th:text="${stat.count}">1</code></td>
+                <td><code th:text="${item.code}">SCHOOL_READ</code></td>
+                <td th:text="${item.module}">SCHOOL</td>
+                <td th:text="${item.action}">READ</td>
+                <td><span class="status-text status-active" th:text="${item.status}">Active</span></td>
+                <td>
+                    <div class="chips" th:if="${!#lists.isEmpty(item.roles)}">
+                        <span class="role-badge"
+                              th:each="roleName : ${item.roles}"
+                              th:classappend="' role-' + ${#strings.toLowerCase(roleName)}"
+                              th:text="${roleName}">ADMIN</span>
+                    </div>
+                    <span class="muted" th:if="${#lists.isEmpty(item.roles)}">—</span>
+                </td>
+            </tr>
+            <tr th:if="${#lists.isEmpty(permissions)}">
+                <td colspan="6">No permissions found.</td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+</section>
+</body>
+</html>

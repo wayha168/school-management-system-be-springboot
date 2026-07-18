@@ -28,4 +28,8 @@ public class UserUpdateRequest {
     private UUID schoolUuid;
 
     private UUID classUuid;
+
+    private String grade;
+
+    private String room;
 }

@@ -53,5 +53,10 @@ springdoc:
 
 app:
   seed:
+    superadmin-email: superadmin@school.com
+    superadmin-password: superadmin123
     admin-email: admin@school.com
     admin-password: admin123
+  jwt:
+    secret: "school-management-jwt-secret-key-change-me-32bytes-min"
+    expiration-ms: 86400000

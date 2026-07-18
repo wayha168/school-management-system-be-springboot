@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security"
+      th:replace="~{layout :: layout(~{::section})}">
+<body>
+<section th:fragment="section">
+    <div class="page-toolbar">
+        <div>
+            <h2 class="page-heading">Role details</h2>
+            <p class="muted" th:text="${role.name}">Role</p>
+        </div>
+        <div class="page-toolbar-actions row">
+            <a class="btn btn-ghost" th:href="@{/admin/roles}">Back</a>
+            <a class="btn btn-dark" sec:authorize="hasAuthority('ROLES_WRITE')"
+               th:href="@{/admin/roles/{id}/edit(id=${role.uuid})}">Edit</a>
+        </div>
+    </div>
+    <article class="form-card">
+        <div class="detail-grid">
+            <div><span class="label">ID</span><p><code th:text="${role.uuid}">uuid</code></p></div>
+            <div>
+                <span class="label">Name</span>
+                <p>
+                    <span class="role-badge"
+                          th:classappend="' role-' + ${#strings.toLowerCase(role.name.name())}"
+                          th:text="${role.name}">ADMIN</span>
+                </p>
+            </div>
+            <div><span class="label">Description</span><p th:text="${role.description}">desc</p></div>
+            <div><span class="label">Status</span><p class="status-text status-active">Active</p></div>
+        </div>
+    </article>
+</section>
+</body>
+</html>

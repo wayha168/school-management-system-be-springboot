@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{layout :: layout(~{::section})}">
+<body>
+<section th:fragment="section">
+    <div class="page-toolbar">
+        <div>
+            <h2 class="page-heading" th:text="${mode == 'edit'} ? 'Edit Class' : 'Add Class'">Add Class</h2>
+            <p class="muted">Assign class to a school with grade</p>
+        </div>
+        <a class="btn btn-ghost" th:href="@{/admin/classes}">Back</a>
+    </div>
+    <article class="form-card">
+        <form th:action="${mode == 'edit'} ? @{/admin/classes/{id}/update(id=${item.uuid})} : @{/admin/classes}"
+              method="post" class="stack-form">
+            <label>Name <input name="name" required th:value="${item != null} ? ${item.name} : ''"></label>
+            <label>Grade <input name="grade" placeholder="e.g. Grade 10" th:value="${item != null} ? ${item.grade} : ''"></label>
+            <label>School
+                <select name="schoolUuid" required>
+                    <option value="" disabled th:selected="${item == null}">Select school</option>
+                    <option th:each="school : ${schools}"
+                            th:value="${school.uuid}"
+                            th:text="${school.name}"
+                            th:selected="${item != null and item.schoolUuid == school.uuid}">School</option>
+                </select>
+            </label>
+            <div class="modal-actions">
+                <a class="btn btn-ghost" th:href="@{/admin/classes}">Cancel</a>
+                <button type="submit" class="btn btn-dark" th:text="${mode == 'edit'} ? 'Save' : 'Create'">Create</button>
+            </div>
+        </form>
+    </article>
+</section>
+</body>
+</html>

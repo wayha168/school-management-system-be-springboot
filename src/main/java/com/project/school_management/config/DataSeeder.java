@@ -2,6 +2,7 @@ package com.project.school_management.config;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -13,6 +14,7 @@ import com.project.school_management.enums.RoleName;
 import com.project.school_management.repository.RoleRepository;
 import com.project.school_management.repository.SchoolRepository;
 import com.project.school_management.repository.UserRepository;
+import com.project.school_management.service.permission.PermissionService;
 
 @Component
 public class DataSeeder implements CommandLineRunner {
@@ -21,6 +23,14 @@ public class DataSeeder implements CommandLineRunner {
     private final SchoolRepository schoolRepository;
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final JdbcTemplate jdbcTemplate;
+    private final PermissionService permissionService;
+
+    @Value("${app.seed.superadmin-email}")
+    private String superAdminEmail;
+
+    @Value("${app.seed.superadmin-password}")
+    private String superAdminPassword;
 
     @Value("${app.seed.admin-email}")
     private String adminEmail;
@@ -32,23 +42,32 @@ public class DataSeeder implements CommandLineRunner {
             RoleRepository roleRepository,
             SchoolRepository schoolRepository,
             UserRepository userRepository,
-            PasswordEncoder passwordEncoder) {
+            PasswordEncoder passwordEncoder,
+            JdbcTemplate jdbcTemplate,
+            PermissionService permissionService) {
         this.roleRepository = roleRepository;
         this.schoolRepository = schoolRepository;
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
+        this.jdbcTemplate = jdbcTemplate;
+        this.permissionService = permissionService;
     }
 
     @Override
     @Transactional
     public void run(String... args) {
+        // Old Hibernate enum CHECK blocks new values like SUPERADMIN
+        jdbcTemplate.execute("ALTER TABLE roles DROP CONSTRAINT IF EXISTS roles_name_check");
         seedRoles();
         SchoolMag school = seedDefaultSchool();
-        seedAdmin(school);
+        seedUser("Super Admin", superAdminEmail, superAdminPassword, RoleName.SUPERADMIN, school);
+        seedUser("System Admin", adminEmail, adminPassword, RoleName.ADMIN, school);
+        permissionService.seedDefaultsIfEmpty();
     }
 
     private void seedRoles() {
-        seedRole(RoleName.ADMIN, "Administrator");
+        seedRole(RoleName.SUPERADMIN, "Platform super administrator");
+        seedRole(RoleName.ADMIN, "School administrator");
         seedRole(RoleName.PRINCIPAL, "School principal");
         seedRole(RoleName.TEACHER, "Teaching staff");
         seedRole(RoleName.STUDENT, "Enrolled student");
@@ -74,13 +93,12 @@ public class DataSeeder implements CommandLineRunner {
                         "/banner.png")));
     }
 
-    private void seedAdmin(SchoolMag school) {
-        if (userRepository.existsByEmail(adminEmail)) {
+    private void seedUser(String name, String email, String password, RoleName roleName, SchoolMag school) {
+        if (userRepository.existsByEmail(email)) {
             return;
         }
-        Role adminRole = roleRepository.findByName(RoleName.ADMIN)
-                .orElseThrow(() -> new IllegalStateException("ADMIN role missing"));
-        User admin = new User("System Admin", adminEmail, passwordEncoder.encode(adminPassword), adminRole, school);
-        userRepository.save(admin);
+        Role role = roleRepository.findByName(roleName)
+                .orElseThrow(() -> new IllegalStateException(roleName + " role missing"));
+        userRepository.save(new User(name, email, passwordEncoder.encode(password), role, school));
     }
 }

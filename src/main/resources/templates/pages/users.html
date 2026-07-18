@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security"
+      th:replace="~{layout :: layout(~{::section})}">
+<body>
+<section th:fragment="section">
+    <div class="page-toolbar">
+        <div>
+            <h2 class="page-heading">Users</h2>
+            <p class="muted">Manage platform users · real-time online via WebSocket</p>
+        </div>
+        <div class="page-toolbar-actions">
+            <a class="btn btn-dark"
+               sec:authorize="hasAuthority('USER_WRITE')"
+               th:href="@{/admin/users/new}">Add Users</a>
+            <input type="search"
+                   class="search-input"
+                   placeholder="Search name or email..."
+                   data-table-search="users-table"
+                   aria-label="Search users">
+        </div>
+    </div>
+
+    <div class="table-wrap">
+        <table class="data-table" id="users-table">
+            <thead>
+            <tr>
+                <th>ID</th>
+                <th>Photo</th>
+                <th>Name</th>
+                <th>Email</th>
+                <th>Role</th>
+                <th>Grade</th>
+                <th>Room / Class</th>
+                <th>Online</th>
+                <th>Status</th>
+                <th>Actions</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr th:each="user : ${users}"
+                th:attr="data-search=${user.name + ' ' + user.email + ' ' + user.uuid},
+                         data-user-email=${user.email}">
+                <td>
+                    <code class="id-chip"
+                          th:title="${user.uuid}"
+                          th:text="${#strings.substring(user.uuid.toString(),0,8)}">abcd1234</code>
+                </td>
+                <td>
+                    <span class="avatar-circle"
+                          th:text="${#strings.substring(user.name,0,1)}">U</span>
+                </td>
+                <td th:text="${user.name}">Name</td>
+                <td th:text="${user.email}">email</td>
+                <td>
+                    <span class="role-badge"
+                          th:classappend="${user.role != null} ? ' role-' + ${#strings.toLowerCase(user.role.name())} : ''"
+                          th:text="${user.role}">ADMIN</span>
+                </td>
+                <td>
+                    <span th:if="${user.role != null and user.role.name() == 'STUDENT'}"
+                          th:text="${user.grade} ?: '—'">Grade</span>
+                    <span th:unless="${user.role != null and user.role.name() == 'STUDENT'}">—</span>
+                </td>
+                <td>
+                    <span th:if="${user.role != null and user.role.name() == 'TEACHER'}"
+                          th:text="${user.room} ?: (user.className ?: '—')">Room</span>
+                    <span th:if="${user.role != null and user.role.name() == 'STUDENT'}"
+                          th:text="${user.className} ?: '—'">Class</span>
+                    <span th:if="${user.role == null or (user.role.name() != 'TEACHER' and user.role.name() != 'STUDENT')}">—</span>
+                </td>
+                <td>
+                    <span class="online-status"
+                          th:classappend="${onlineEmails != null and #sets.contains(onlineEmails, user.email)} ? ' online' : ' offline'"
+                          data-presence-email
+                          th:attr="data-presence-email=${user.email}">
+                        <span class="dot"></span>
+                        <span class="presence-label"
+                              th:text="${onlineEmails != null and #sets.contains(onlineEmails, user.email)} ? 'Online' : 'Offline'">Offline</span>
+                    </span>
+                </td>
+                <td><span class="status-text status-active">Active</span></td>
+                <td>
+                    <div class="action-btns">
+                        <a class="icon-action" title="View" th:href="@{/admin/users/{id}(id=${user.uuid})}">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                        </a>
+                        <a class="icon-action" title="Edit"
+                           sec:authorize="hasAuthority('USER_WRITE')"
+                           th:href="@{/admin/users/{id}/edit(id=${user.uuid})}">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>
+                        </a>
+                        <button type="button"
+                                class="icon-action danger"
+                                title="Delete"
+                                sec:authorize="hasAuthority('USER_WRITE')"
+                                data-confirm-open
+                                th:attr="data-confirm-action=@{/admin/users/{id}/delete(id=${user.uuid})},
+                                         data-confirm-message=${'Delete user ' + user.name + '?'}">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+            <tr th:if="${#lists.isEmpty(users)}">
+                <td colspan="10">No users found.</td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+</section>
+</body>
+</html>

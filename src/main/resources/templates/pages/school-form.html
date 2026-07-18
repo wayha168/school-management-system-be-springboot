@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{layout :: layout(~{::section})}">
+<body>
+<section th:fragment="section">
+    <div class="page-toolbar">
+        <div>
+            <h2 class="page-heading" th:text="${mode == 'edit'} ? 'Edit School' : 'Add School'">Add School</h2>
+            <p class="muted">School profile details</p>
+        </div>
+        <a class="btn btn-ghost" th:href="@{/admin/schools}">Back</a>
+    </div>
+    <article class="form-card">
+        <form th:action="${mode == 'edit'} ? @{/admin/schools/{id}/update(id=${school.uuid})} : @{/admin/schools}"
+              method="post" class="stack-form">
+            <label>Name <input name="name" required th:value="${school != null} ? ${school.name} : ''"></label>
+            <label>Description <input name="description" required th:value="${school != null} ? ${school.description} : ''"></label>
+            <label>Address <input name="address" required th:value="${school != null} ? ${school.address} : ''"></label>
+            <label>Phone <input name="phone" required th:value="${school != null} ? ${school.phone} : ''"></label>
+            <label>Email <input type="email" name="email" required th:value="${school != null} ? ${school.email} : ''"></label>
+            <label>Website <input name="website" required th:value="${school != null} ? ${school.website} : 'https://'"></label>
+            <label>Logo URL <input name="logo" th:value="${school != null} ? ${school.logo} : '/logo.png'"></label>
+            <label>Banner URL <input name="banner" th:value="${school != null} ? ${school.banner} : '/banner.png'"></label>
+            <div class="modal-actions">
+                <a class="btn btn-ghost" th:href="@{/admin/schools}">Cancel</a>
+                <button type="submit" class="btn btn-dark" th:text="${mode == 'edit'} ? 'Save' : 'Create'">Create</button>
+            </div>
+        </form>
+    </article>
+</section>
+</body>
+</html>

@@ -13,22 +13,23 @@ import io.swagger.v3.oas.models.security.SecurityScheme;
 @Configuration
 public class OpenApiConfig {
 
+    private static final String BEARER = "bearerAuth";
+
     @Bean
-    OpenAPI schoolManagementOpenApi() {
-        final String scheme = "basicAuth";
+    public OpenAPI schoolManagementOpenApi() {
         return new OpenAPI()
                 .info(new Info()
-                        .title("School Management API")
-                        .description("CRUD APIs for schools, classes, users, and roles. "
-                                + "Use Authorize with admin email/password (HTTP Basic).")
+                        .title("School Management Admin API")
+                        .description("Admin microservice APIs. Login at POST /api/auth/login, then Authorize with Bearer JWT.")
                         .version("v1")
                         .contact(new Contact().name("School Management")))
-                .addSecurityItem(new SecurityRequirement().addList(scheme))
+                .addSecurityItem(new SecurityRequirement().addList(BEARER))
                 .components(new Components().addSecuritySchemes(
-                        scheme,
+                        BEARER,
                         new SecurityScheme()
-                                .name(scheme)
+                                .name(BEARER)
                                 .type(SecurityScheme.Type.HTTP)
-                                .scheme("basic")));
+                                .scheme("bearer")
+                                .bearerFormat("JWT")));
     }
 }

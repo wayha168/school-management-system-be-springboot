@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{layout :: layout(~{::section})}">
+<body>
+<section th:fragment="section">
+    <div class="page-toolbar">
+        <div>
+            <h2 class="page-heading" th:text="${mode == 'edit'} ? 'Edit Role' : 'Add Role'">Add Role</h2>
+            <p class="muted">Role identity and description</p>
+        </div>
+        <a class="btn btn-ghost" th:href="@{/admin/roles}">Back</a>
+    </div>
+    <article class="form-card">
+        <form th:action="${mode == 'edit'} ? @{/admin/roles/{id}/update(id=${role.uuid})} : @{/admin/roles}"
+              method="post" class="stack-form">
+            <label>Name
+                <select name="name" required>
+                    <option value="" disabled th:selected="${role == null}">Select role</option>
+                    <option th:each="rn : ${roleNames}"
+                            th:value="${rn}"
+                            th:text="${rn}"
+                            th:selected="${role != null and role.name == rn}">ADMIN</option>
+                </select>
+            </label>
+            <label>Description
+                <input name="description" required th:value="${role != null} ? ${role.description} : ''">
+            </label>
+            <div class="modal-actions">
+                <a class="btn btn-ghost" th:href="@{/admin/roles}">Cancel</a>
+                <button type="submit" class="btn btn-dark" th:text="${mode == 'edit'} ? 'Save' : 'Create'">Create</button>
+            </div>
+        </form>
+    </article>
+</section>
+</body>
+</html>

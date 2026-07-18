@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security"
+      th:replace="~{layout :: layout(~{::section})}">
+<body>
+<section th:fragment="section">
+    <div class="page-toolbar">
+        <div>
+            <h2 class="page-heading">Roles</h2>
+            <p class="muted">Manage roles on the platform</p>
+        </div>
+        <div class="page-toolbar-actions">
+            <a class="btn btn-dark" sec:authorize="hasAuthority('ROLES_WRITE')" th:href="@{/admin/roles/new}">Add Role</a>
+            <input type="search" class="search-input" placeholder="Search role..." data-table-search="roles-table">
+        </div>
+    </div>
+    <div class="table-wrap">
+        <table class="data-table" id="roles-table">
+            <thead>
+            <tr>
+                <th>ID</th>
+                <th>Photo</th>
+                <th>Name</th>
+                <th>Description</th>
+                <th>Status</th>
+                <th>Actions</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr th:each="role : ${roles}"
+                th:attr="data-search=${role.name + ' ' + role.description + ' ' + role.uuid}">
+                <td><code class="id-chip" th:title="${role.uuid}" th:text="${#strings.substring(role.uuid.toString(),0,8)}">id</code></td>
+                <td><span class="avatar-circle" th:text="${#strings.substring(role.name.name(),0,1)}">R</span></td>
+                <td>
+                    <span class="role-badge"
+                          th:classappend="' role-' + ${#strings.toLowerCase(role.name.name())}"
+                          th:text="${role.name}">ADMIN</span>
+                </td>
+                <td th:text="${role.description}">Description</td>
+                <td><span class="status-text status-active">Active</span></td>
+                <td>
+                    <div class="action-btns">
+                        <a class="icon-action" title="View" th:href="@{/admin/roles/{id}(id=${role.uuid})}">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                        </a>
+                        <a class="icon-action" title="Edit" sec:authorize="hasAuthority('ROLES_WRITE')" th:href="@{/admin/roles/{id}/edit(id=${role.uuid})}">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>
+                        </a>
+                        <button type="button" class="icon-action danger" title="Delete"
+                                sec:authorize="hasAuthority('ROLES_WRITE')"
+                                data-confirm-open
+                                th:attr="data-confirm-action=@{/admin/roles/{id}/delete(id=${role.uuid})},
+                                         data-confirm-message=${'Delete role ' + role.name + '?'}">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+            <tr th:if="${#lists.isEmpty(roles)}"><td colspan="6">No roles found.</td></tr>
+            </tbody>
+        </table>
+    </div>
+</section>
+</body>
+</html>

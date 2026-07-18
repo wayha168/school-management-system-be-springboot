@@ -51,6 +51,14 @@ public class User {
     @JoinColumn(name = "class_uuid")
     private SchoolClass schoolClass;
 
+    /** Student grade level (e.g. Grade 10). */
+    @Column(name = "grade", length = 50)
+    private String grade;
+
+    /** Teacher room / classroom (e.g. Room A-12). */
+    @Column(name = "room", length = 100)
+    private String room;
+
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
 
