@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login | School Management</title>
+    <link rel="stylesheet" th:href="@{/css/app.css}">
+</head>
+<body class="auth-body">
+<main class="auth-card">
+    <p class="brand">School Management</p>
+    <h1>Sign in</h1>
+    <p class="muted">Access the dashboard and Swagger API console.</p>
+
+    <div th:if="${param.error}" class="alert error">Invalid email or password.</div>
+    <div th:if="${param.logout}" class="alert ok">You have been logged out.</div>
+
+    <form th:action="@{/login}" method="post">
+        <label for="username">Email</label>
+        <input id="username" name="username" type="email" required placeholder="admin@school.com">
+
+        <label for="password">Password</label>
+        <input id="password" name="password" type="password" required placeholder="••••••••">
+
+        <button type="submit">Login</button>
+    </form>
+
+    <p class="hint">Default: admin@school.com / admin123</p>
+</main>
+</body>
+</html>
