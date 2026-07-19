@@ -3,7 +3,9 @@ package com.project.school_management.controller.api;
 import java.util.List;
 import java.util.UUID;
 
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -16,6 +18,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.project.school_management.dto.ApiResponse;
+import com.project.school_management.dto.school.SchoolImage;
 import com.project.school_management.dto.school.SchoolRequest;
 import com.project.school_management.dto.school.SchoolResponse;
 import com.project.school_management.exception.ErrorRuntime;
@@ -23,13 +26,13 @@ import com.project.school_management.service.school.SchoolService;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.security.SecurityRequirements;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 
 @RestController
-@RequestMapping("/api/schools")
+@RequestMapping("/api/v1/schools")
 @Tag(name = "Schools")
-@SecurityRequirement(name = "bearerAuth")
 public class SchoolController {
 
     private final SchoolService schoolService;
@@ -40,6 +43,7 @@ public class SchoolController {
 
     @PostMapping
     @PreAuthorize("hasAuthority('SCHOOL_WRITE')")
+    @SecurityRequirement(name = "bearerAuth")
     @Operation(summary = "Create school")
     public ResponseEntity<ApiResponse<SchoolResponse>> create(@Valid @RequestBody SchoolRequest request) {
         try {
@@ -53,8 +57,8 @@ public class SchoolController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAuthority('SCHOOL_READ')")
-    @Operation(summary = "List schools")
+    @SecurityRequirements
+    @Operation(summary = "List schools (public)")
     public ResponseEntity<ApiResponse<List<SchoolResponse>>> getAll() {
         try {
             return ResponseEntity.ok(ApiResponse.ok("Schools fetched", schoolService.getAll()));
@@ -66,8 +70,8 @@ public class SchoolController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAuthority('SCHOOL_READ')")
-    @Operation(summary = "Get school by id")
+    @SecurityRequirements
+    @Operation(summary = "Get school by id (public)")
     public ResponseEntity<ApiResponse<SchoolResponse>> getById(@PathVariable UUID id) {
         try {
             return ResponseEntity.ok(ApiResponse.ok("School fetched", schoolService.getById(id)));
@@ -80,6 +84,7 @@ public class SchoolController {
 
     @PutMapping("/{id}")
     @PreAuthorize("hasAuthority('SCHOOL_WRITE')")
+    @SecurityRequirement(name = "bearerAuth")
     @Operation(summary = "Update school")
     public ResponseEntity<ApiResponse<SchoolResponse>> update(
             @PathVariable UUID id,
@@ -95,6 +100,7 @@ public class SchoolController {
 
     @DeleteMapping("/{id}")
     @PreAuthorize("hasAuthority('SCHOOL_WRITE')")
+    @SecurityRequirement(name = "bearerAuth")
     @Operation(summary = "Delete school")
     public ResponseEntity<ApiResponse<Void>> delete(@PathVariable UUID id) {
         try {
@@ -105,5 +111,27 @@ public class SchoolController {
         } catch (Exception ex) {
             throw new ErrorRuntime("Delete school failed", ex);
         }
+    }
+
+    @GetMapping("/{id}/logo")
+    @SecurityRequirements
+    @Operation(summary = "Get school logo image (public)")
+    public ResponseEntity<byte[]> logo(@PathVariable UUID id) {
+        SchoolImage image = schoolService.getLogo(id);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CACHE_CONTROL, "public, max-age=3600")
+                .contentType(MediaType.parseMediaType(image.contentType()))
+                .body(image.data());
+    }
+
+    @GetMapping("/{id}/banner")
+    @SecurityRequirements
+    @Operation(summary = "Get school banner image (public)")
+    public ResponseEntity<byte[]> banner(@PathVariable UUID id) {
+        SchoolImage image = schoolService.getBanner(id);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CACHE_CONTROL, "public, max-age=3600")
+                .contentType(MediaType.parseMediaType(image.contentType()))
+                .body(image.data());
     }
 }

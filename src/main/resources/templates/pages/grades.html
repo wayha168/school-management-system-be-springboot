@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{layout :: layout(~{::section})}">
+<body>
+<section th:fragment="section">
+    <div class="page-toolbar">
+        <div class="page-toolbar-main">
+            <div>
+                <h2 class="page-heading">Grades</h2>
+                <p class="muted">Sessions with scores · student GPA and subject averages</p>
+            </div>
+            <div class="page-toolbar-actions">
+                <div class="page-toolbar-left">
+                    <input type="search" class="search-input" placeholder="Search student..."
+                           data-table-search="grades-table" aria-label="Search students">
+                    <form class="filter-bar" method="get" th:action="@{/admin/grades}">
+                        <select name="generation" onchange="this.form.submit()">
+                            <option value="">All generations</option>
+                            <option th:each="g : ${generations}" th:value="${g}"
+                                    th:selected="${selectedGeneration != null and selectedGeneration == g}"
+                                    th:text="${'G' + g}">G9</option>
+                        </select>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="table-wrap">
+        <table class="data-table" id="grades-table">
+            <thead>
+            <tr>
+                <th>Student</th>
+                <th>Email</th>
+                <th>Grade</th>
+                <th>Classes</th>
+                <th>Actions</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr th:each="s : ${students}"
+                th:attr="data-search=${s.name + ' ' + s.email}">
+                <td th:text="${s.name}">Name</td>
+                <td th:text="${s.email}">email</td>
+                <td th:text="${s.grade} ?: '—'">Grade</td>
+                <td th:text="${s.classNames} ?: '—'">Class</td>
+                <td>
+                    <a class="btn btn-ghost" th:href="@{/admin/grades/{id}(id=${s.uuid})}">View GPA</a>
+                </td>
+            </tr>
+            <tr th:if="${#lists.isEmpty(students)}"><td colspan="5">No students found.</td></tr>
+            </tbody>
+        </table>
+    </div>
+</section>
+</body>
+</html>

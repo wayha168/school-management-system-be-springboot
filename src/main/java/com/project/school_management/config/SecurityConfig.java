@@ -21,64 +21,79 @@ import com.project.school_management.security.jwt.JwtAuthenticationFilter;
 @EnableMethodSecurity
 public class SecurityConfig {
 
-    private final JwtAuthenticationFilter jwtAuthenticationFilter;
+        private final JwtAuthenticationFilter jwtAuthenticationFilter;
 
-    public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter) {
-        this.jwtAuthenticationFilter = jwtAuthenticationFilter;
-    }
+        public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter) {
+                this.jwtAuthenticationFilter = jwtAuthenticationFilter;
+        }
 
-    @Bean
-    PasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder();
-    }
+        @Bean
+        PasswordEncoder passwordEncoder() {
+                return new BCryptPasswordEncoder();
+        }
 
-    @Bean
-    AuthenticationManager authenticationManager(AuthenticationConfiguration configuration) throws Exception {
-        return configuration.getAuthenticationManager();
-    }
+        @Bean
+        AuthenticationManager authenticationManager(AuthenticationConfiguration configuration) throws Exception {
+                return configuration.getAuthenticationManager();
+        }
 
-    @Bean
-    SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-        http
-                .csrf(csrf -> csrf.ignoringRequestMatchers(
-                        "/api/**",
-                        "/v3/api-docs/**",
-                        "/swagger-ui/**",
-                        "/ws/**"))
-                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
-                .authorizeHttpRequests(auth -> auth
-                        .requestMatchers(
-                                "/login",
-                                "/css/**",
-                                "/js/**",
-                                "/swagger-ui/**",
-                                "/swagger-ui.html",
-                                "/v3/api-docs/**",
-                                "/api/auth/**")
-                        .permitAll()
-                        .requestMatchers("/ws/**")
-                        .authenticated()
-                        .requestMatchers(HttpMethod.POST, "/api/schools/**", "/api/users/**", "/api/classes/**", "/api/roles/**")
-                        .authenticated()
-                        .requestMatchers(HttpMethod.PUT, "/api/schools/**", "/api/users/**", "/api/classes/**", "/api/roles/**")
-                        .authenticated()
-                        .requestMatchers(HttpMethod.DELETE, "/api/schools/**", "/api/users/**", "/api/classes/**", "/api/roles/**")
-                        .authenticated()
-                        .requestMatchers("/api/**")
-                        .authenticated()
-                        .requestMatchers("/admin/**", "/dashboard", "/")
-                        .hasAnyRole("SUPERADMIN", "ADMIN", "PRINCIPAL", "STAFF", "TEACHER")
-                        .anyRequest()
-                        .authenticated())
-                .formLogin(form -> form
-                        .loginPage("/login")
-                        .defaultSuccessUrl("/admin/dashboard", true)
-                        .permitAll())
-                .logout(logout -> logout
-                        .logoutSuccessUrl("/login?logout")
-                        .permitAll())
-                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+        @Bean
+        SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+                http
+                                .csrf(csrf -> csrf.ignoringRequestMatchers(
+                                                "/api/v1/**",
+                                                "/v3/api-docs/**",
+                                                "/swagger-ui/**",
+                                                "/ws/**"))
+                                .sessionManagement(session -> session
+                                                .sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
+                                .authorizeHttpRequests(auth -> auth
+                                                .requestMatchers(
+                                                                "/login",
+                                                                "/css/**",
+                                                                "/js/**",
+                                                                "/assets/**",
+                                                                "/favicon.ico",
+                                                                "/favicon.svg",
+                                                                "/swagger-ui/**",
+                                                                "/swagger-ui.html",
+                                                                "/v3/api-docs/**",
+                                                                "/api/v1/auth/**")
+                                                .permitAll()
+                                                // Public school display: info + images (no login)
+                                                .requestMatchers(HttpMethod.GET,
+                                                                "/api/v1/schools",
+                                                                "/api/v1/schools/**")
+                                                .permitAll()
+                                                .requestMatchers("/ws/**")
+                                                .authenticated()
+                                                .requestMatchers(HttpMethod.POST, "/api/v1/schools/**",
+                                                                "/api/v1/users/**", "/api/v1/classes/**",
+                                                                "/api/v1/roles/**")
+                                                .authenticated()
+                                                .requestMatchers(HttpMethod.PUT, "/api/v1/schools/**",
+                                                                "/api/v1/users/**", "/api/v1/classes/**",
+                                                                "/api/v1/roles/**")
+                                                .authenticated()
+                                                .requestMatchers(HttpMethod.DELETE, "/api/v1/schools/**",
+                                                                "/api/v1/users/**", "/api/v1/classes/**",
+                                                                "/api/v1/roles/**")
+                                                .authenticated()
+                                                .requestMatchers("/api/v1/**")
+                                                .authenticated()
+                                                .requestMatchers("/admin/**", "/dashboard", "/")
+                                                .hasAnyRole("SUPERADMIN", "ADMIN", "PRINCIPAL", "STAFF", "TEACHER", "STUDENT")
+                                                .anyRequest()
+                                                .authenticated())
+                                .formLogin(form -> form
+                                                .loginPage("/login")
+                                                .defaultSuccessUrl("/admin/dashboard", true)
+                                                .permitAll())
+                                .logout(logout -> logout
+                                                .logoutSuccessUrl("/login?logout")
+                                                .permitAll())
+                                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
-        return http.build();
-    }
+                return http.build();
+        }
 }

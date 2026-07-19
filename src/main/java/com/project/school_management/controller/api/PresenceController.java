@@ -14,7 +14,7 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
 @RestController
-@RequestMapping("/api/presence")
+@RequestMapping("/api/v1/presence")
 @Tag(name = "Presence")
 @SecurityRequirement(name = "bearerAuth")
 public class PresenceController {

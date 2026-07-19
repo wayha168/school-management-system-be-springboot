@@ -10,9 +10,9 @@
         </div>
         <a class="btn btn-ghost" th:href="@{/admin/roles}">Back</a>
     </div>
-    <article class="form-card">
+    <article class="form-card form-card-wide">
         <form th:action="${mode == 'edit'} ? @{/admin/roles/{id}/update(id=${role.uuid})} : @{/admin/roles}"
-              method="post" class="stack-form">
+              method="post" class="form-grid">
             <label>Name
                 <select name="name" required>
                     <option value="" disabled th:selected="${role == null}">Select role</option>
@@ -22,10 +22,10 @@
                             th:selected="${role != null and role.name == rn}">ADMIN</option>
                 </select>
             </label>
-            <label>Description
+            <label class="span-2">Description
                 <input name="description" required th:value="${role != null} ? ${role.description} : ''">
             </label>
-            <div class="modal-actions">
+            <div class="modal-actions span-3">
                 <a class="btn btn-ghost" th:href="@{/admin/roles}">Cancel</a>
                 <button type="submit" class="btn btn-dark" th:text="${mode == 'edit'} ? 'Save' : 'Create'">Create</button>
             </div>

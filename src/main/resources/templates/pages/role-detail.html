@@ -5,14 +5,14 @@
 <body>
 <section th:fragment="section">
     <div class="page-toolbar">
-        <div>
+        <div class="page-toolbar-main">
             <h2 class="page-heading">Role details</h2>
             <p class="muted" th:text="${role.name}">Role</p>
-        </div>
-        <div class="page-toolbar-actions row">
-            <a class="btn btn-ghost" th:href="@{/admin/roles}">Back</a>
-            <a class="btn btn-dark" sec:authorize="hasAuthority('ROLES_WRITE')"
-               th:href="@{/admin/roles/{id}/edit(id=${role.uuid})}">Edit</a>
+            <div class="page-toolbar-actions row">
+                <a class="btn btn-ghost" th:href="@{/admin/roles}">Back</a>
+                <a class="btn btn-dark" sec:authorize="hasAuthority('ROLES_WRITE')"
+                   th:href="@{/admin/roles/{id}/edit(id=${role.uuid})}">Edit</a>
+            </div>
         </div>
     </div>
     <article class="form-card">

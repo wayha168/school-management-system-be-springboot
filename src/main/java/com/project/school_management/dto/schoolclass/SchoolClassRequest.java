@@ -16,6 +16,13 @@ public class SchoolClassRequest {
 
     private String grade;
 
+    /** Generation id (e.g. 9 for G9). */
+    @NotNull
+    private Integer generation;
+
+    /** Academic year (e.g. 2025). */
+    private Integer academicYear;
+
     @NotNull
     private UUID schoolUuid;
 }

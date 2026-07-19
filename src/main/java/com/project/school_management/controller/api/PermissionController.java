@@ -28,7 +28,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 
 @RestController
-@RequestMapping("/api/permissions")
+@RequestMapping("/api/v1/permissions")
 @Tag(name = "Permissions")
 @SecurityRequirement(name = "bearerAuth")
 public class PermissionController {
@@ -57,7 +57,8 @@ public class PermissionController {
     @Operation(summary = "List permissions for a role")
     public ResponseEntity<ApiResponse<List<String>>> getByRole(@PathVariable UUID roleUuid) {
         try {
-            return ResponseEntity.ok(ApiResponse.ok("Role permissions fetched", permissionService.getPermissionsForRole(roleUuid)));
+            return ResponseEntity
+                    .ok(ApiResponse.ok("Role permissions fetched", permissionService.getPermissionsForRole(roleUuid)));
         } catch (RuntimeException ex) {
             throw ex;
         } catch (Exception ex) {

@@ -1,5 +1,6 @@
 package com.project.school_management.dto.user;
 
+import java.util.List;
 import java.util.UUID;
 
 import jakarta.validation.constraints.Email;
@@ -27,7 +28,8 @@ public class UserUpdateRequest {
     @NotNull
     private UUID schoolUuid;
 
-    private UUID classUuid;
+    /** Classes the user belongs to (student) or teaches (teacher). */
+    private List<UUID> classUuids;
 
     private String grade;
 

@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title th:text="${pageTitle} + ' | School Management'">School Management</title>
+    <link rel="icon" type="image/svg+xml" th:href="@{/favicon.svg}">
+    <link rel="shortcut icon" th:href="@{/favicon.svg}">
     <link rel="stylesheet" th:href="@{/css/app.css}">
 </head>
 <body class="admin-body"
@@ -31,12 +33,53 @@
     </div>
 </div>
 
+<!-- Notifications drawer -->
+<div class="notif-backdrop" data-notifications-backdrop hidden></div>
+<aside class="notif-drawer"
+       id="notifications-drawer"
+       data-notifications-drawer
+       hidden
+       role="dialog"
+       aria-modal="true"
+       aria-labelledby="notif-title">
+    <div class="notif-drawer-head">
+        <div>
+            <h2 id="notif-title">Notifications</h2>
+            <p class="muted">Users, classes &amp; school alerts</p>
+        </div>
+        <div class="notif-drawer-actions">
+            <button type="button" class="notif-link-btn" data-notif-mark-all>Mark all read</button>
+            <button type="button" class="icon-btn" data-notifications-close aria-label="Close notifications">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M18 6L6 18M6 6l12 12"/>
+                </svg>
+            </button>
+        </div>
+    </div>
+    <div class="notif-filters" role="tablist">
+        <button type="button" class="notif-filter is-active" data-notif-filter="unread" role="tab" aria-selected="true">
+            <span class="notif-dot unread"></span> Unread
+        </button>
+        <button type="button" class="notif-filter" data-notif-filter="read" role="tab" aria-selected="false">
+            <span class="notif-dot read"></span> Read
+        </button>
+    </div>
+    <div class="notif-list" data-notif-list></div>
+    <div class="notif-drawer-foot">
+        <button type="button" class="notif-link-btn" data-notif-view-all>View all notifications</button>
+    </div>
+</aside>
+
 <div id="toast-host" class="toast-host" aria-live="polite"></div>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/stompjs@2.3.3/lib/stomp.min.js"></script>
 <script th:src="@{/js/header-profile.js}"></script>
+<script th:src="@{/js/notifications.js}"></script>
 <script th:src="@{/js/toast.js}"></script>
 <script th:src="@{/js/admin-crud.js}"></script>
+<script th:src="@{/js/image-upload.js}"></script>
+<script th:src="@{/js/dashboard-charts.js}"></script>
 <script th:src="@{/js/presence.js}"></script>
 </body>
 </html>

@@ -43,4 +43,20 @@ public enum Permission {
     STAFF_WRITE,
     STAFF_EDIT,
     STAFF_DELETE,
+
+    //Score permissions
+    SCORE_READ,
+    SCORE_WRITE,
+
+    //Finance
+    FINANCE_READ,
+    FINANCE_WRITE,
+
+    //Requests / complaints
+    REQUEST_READ,
+    REQUEST_WRITE,
+
+    //Attendance
+    ATTENDANCE_READ,
+    ATTENDANCE_WRITE,
 }

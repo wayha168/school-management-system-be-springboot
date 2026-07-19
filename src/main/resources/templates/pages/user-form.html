@@ -4,26 +4,69 @@
 <body>
 <section th:fragment="section">
     <div class="page-toolbar">
-        <div>
+        <div class="page-toolbar-main">
             <h2 class="page-heading" th:text="${mode == 'edit'} ? 'Edit User' : 'Add User'">Add User</h2>
-            <p class="muted">Students use Grade · Teachers use Room / Class</p>
+            <p class="muted">Students: pick grade, then classes · Teachers: room + teaching classes</p>
+            <div class="page-toolbar-actions row">
+                <a class="btn btn-ghost" th:href="@{/admin/users}">Back</a>
+            </div>
         </div>
-        <a class="btn btn-ghost" th:href="@{/admin/users}">Back</a>
     </div>
 
-    <article class="form-card">
+    <article class="form-card form-card-wide">
         <form th:action="${mode == 'edit'} ? @{/admin/users/{id}/update(id=${user.uuid})} : @{/admin/users}"
               method="post"
-              class="stack-form"
-              data-role-form>
-            <label>Name <input name="name" required th:value="${user != null} ? ${user.name} : ''"></label>
-            <label>Email <input type="email" name="email" required th:value="${user != null} ? ${user.email} : ''"></label>
+              enctype="multipart/form-data"
+              class="form-grid"
+              data-role-form
+              data-image-upload-form>
+            <div class="upload-grid span-3">
+                <div class="upload-tile upload-tile-logo"
+                     data-upload-tile>
+                    <input type="file"
+                           name="profileImage"
+                           accept="image/png,image/jpeg,image/webp,image/gif"
+                           hidden
+                           data-upload-input>
+                    <button type="button"
+                            class="upload-preview upload-preview-logo"
+                            data-upload-preview
+                            data-upload-trigger
+                            th:classappend="${user != null and user.hasProfileImage} ? ' has-image' : ''"
+                            th:style="${user != null and user.hasProfileImage} ? 'background-image:url(' + user.profileImageUrl + ')' : null"
+                            aria-label="Upload profile photo">
+                        <span class="upload-placeholder" data-upload-placeholder th:if="${user == null or !user.hasProfileImage}">
+                            <strong>Photo</strong>
+                            <span>Click to upload</span>
+                        </span>
+                        <span class="upload-change">Change</span>
+                    </button>
+                    <div class="upload-meta">
+                        <strong>Profile photo</strong>
+                        <span data-upload-filename
+                              th:text="${user != null and user.hasProfileImage} ? 'Current photo' : 'Optional · max 5MB'">Optional · max 5MB</span>
+                    </div>
+                </div>
+            </div>
+
+            <label>First name
+                <input name="firstName" required
+                       th:value="${user != null} ? ${user.firstName} : ''">
+            </label>
+            <label>Last name
+                <input name="lastName" required
+                       th:value="${user != null} ? ${user.lastName} : ''">
+            </label>
+            <label>Email
+                <input type="email" name="email" required th:value="${user != null} ? ${user.email} : ''">
+            </label>
             <label th:if="${mode != 'edit'}">Password
                 <input type="password" name="password" minlength="6" required>
             </label>
             <label th:if="${mode == 'edit'}">Password
                 <input type="password" name="password" minlength="6" placeholder="Leave blank to keep">
             </label>
+
             <label>Role
                 <select name="roleUuid" required data-role-select>
                     <option value="" disabled th:selected="${user == null}">Select role</option>
@@ -35,7 +78,7 @@
                 </select>
             </label>
             <label>School
-                <select name="schoolUuid" required>
+                <select name="schoolUuid" required data-school-select>
                     <option value="" disabled th:selected="${user == null}">Select school</option>
                     <option th:each="school : ${schools}"
                             th:value="${school.uuid}"
@@ -43,24 +86,33 @@
                             th:selected="${user != null and user.schoolUuid == school.uuid}">School</option>
                 </select>
             </label>
-            <label data-field-class>Class
-                <select name="classUuid">
-                    <option value="">None</option>
-                    <option th:each="item : ${classes}"
-                            th:value="${item.uuid}"
-                            th:text="${item.name + ' (' + item.schoolName + ')'}"
-                            th:selected="${user != null and user.classUuid == item.uuid}">Class</option>
+
+            <label data-field-grade hidden>Grade (student)
+                <select name="grade" data-grade-select>
+                    <option value="">Select grade</option>
+                    <option th:each="gr : ${grades}"
+                            th:value="${gr}"
+                            th:text="${gr}"
+                            th:selected="${user != null and user.grade != null and user.grade == gr}">Grade 10</option>
                 </select>
             </label>
-            <label data-field-grade hidden>Grade (student)
-                <input name="grade" placeholder="e.g. Grade 10"
-                       th:value="${user != null} ? ${user.grade} : ''">
-            </label>
-            <label data-field-room hidden>Room / Class (teacher)
+            <label data-field-room hidden>Room (teacher)
                 <input name="room" placeholder="e.g. Room A-12"
                        th:value="${user != null} ? ${user.room} : ''">
             </label>
-            <div class="modal-actions">
+
+            <label class="span-3" data-field-class hidden>Classes
+                <select name="classUuids" multiple size="5" data-class-select>
+                    <option th:each="item : ${classes}"
+                            th:value="${item.uuid}"
+                            th:attr="data-class-grade=${item.grade}, data-class-school=${item.schoolUuid}"
+                            th:text="${item.name + ' · ' + (item.grade ?: '—') + ' · ' + (item.generationCode ?: ('G' + item.generation)) + ' (' + item.schoolName + ')'}"
+                            th:selected="${user != null and user.classes != null and !#lists.isEmpty(user.classes.?[uuid.equals(item.uuid)])}">Class</option>
+                </select>
+                <small class="muted" data-class-hint>Select role Student and a grade to see matching classes. Teachers see all school classes.</small>
+            </label>
+
+            <div class="modal-actions span-3">
                 <a class="btn btn-ghost" th:href="@{/admin/users}">Cancel</a>
                 <button type="submit" class="btn btn-dark" th:text="${mode == 'edit'} ? 'Save' : 'Create'">Create</button>
             </div>

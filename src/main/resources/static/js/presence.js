@@ -31,7 +31,7 @@
             });
             // Register this session for real-time presence
             client.send("/app/presence/ping", {}, "{}");
-            fetch("/api/presence/online", { credentials: "same-origin" })
+            fetch("/api/v1/presence/online", { credentials: "same-origin" })
                 .then((r) => (r.ok ? r.json() : null))
                 .then((body) => {
                     if (body && body.data) {

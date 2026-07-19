@@ -6,16 +6,30 @@
     <div class="page-toolbar">
         <div>
             <h2 class="page-heading" th:text="${mode == 'edit'} ? 'Edit Class' : 'Add Class'">Add Class</h2>
-            <p class="muted">Assign class to a school with grade</p>
+            <p class="muted">Assign class with grade, generation (G#) and academic year</p>
         </div>
         <a class="btn btn-ghost" th:href="@{/admin/classes}">Back</a>
     </div>
-    <article class="form-card">
+    <article class="form-card form-card-wide">
         <form th:action="${mode == 'edit'} ? @{/admin/classes/{id}/update(id=${item.uuid})} : @{/admin/classes}"
-              method="post" class="stack-form">
-            <label>Name <input name="name" required th:value="${item != null} ? ${item.name} : ''"></label>
-            <label>Grade <input name="grade" placeholder="e.g. Grade 10" th:value="${item != null} ? ${item.grade} : ''"></label>
-            <label>School
+              method="post" class="form-grid">
+            <label>Name
+                <input name="name" required th:value="${item != null} ? ${item.name} : ''">
+            </label>
+            <label>Grade
+                <input name="grade" placeholder="e.g. Grade 10" th:value="${item != null} ? ${item.grade} : ''">
+            </label>
+            <label>Generation id
+                <input type="number" name="generation" required min="1" max="100"
+                       placeholder="e.g. 9 for G9"
+                       th:value="${item != null} ? ${item.generation} : ''">
+            </label>
+            <label>Academic year
+                <input type="number" name="academicYear" min="2000" max="2100"
+                       placeholder="e.g. 2025"
+                       th:value="${item != null} ? ${item.academicYear} : ${T(java.time.Year).now().value}">
+            </label>
+            <label class="span-2">School
                 <select name="schoolUuid" required>
                     <option value="" disabled th:selected="${item == null}">Select school</option>
                     <option th:each="school : ${schools}"
@@ -24,7 +38,7 @@
                             th:selected="${item != null and item.schoolUuid == school.uuid}">School</option>
                 </select>
             </label>
-            <div class="modal-actions">
+            <div class="modal-actions span-3">
                 <a class="btn btn-ghost" th:href="@{/admin/classes}">Cancel</a>
                 <button type="submit" class="btn btn-dark" th:text="${mode == 'edit'} ? 'Save' : 'Create'">Create</button>
             </div>

@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{layout :: layout(~{::section})}">
+<body>
+<section th:fragment="section">
+    <div class="page-toolbar">
+        <div class="page-toolbar-main">
+            <div>
+                <h2 class="page-heading" th:text="${staffInbox} ? 'Requests inbox' : 'My requests'">Requests</h2>
+                <p class="muted">Complaints and text requests</p>
+            </div>
+            <div class="page-toolbar-actions">
+                <div class="page-toolbar-left">
+                    <input type="search" class="search-input" placeholder="Search..."
+                           data-table-search="requests-table">
+                    <form class="filter-bar" method="get" th:action="@{/admin/requests}" th:if="${staffInbox}">
+                        <select name="status" onchange="this.form.submit()">
+                            <option value="">All statuses</option>
+                            <option th:each="st : ${statuses}" th:value="${st}"
+                                    th:selected="${selectedStatus != null and selectedStatus == st}"
+                                    th:text="${st}">OPEN</option>
+                        </select>
+                    </form>
+                </div>
+                <div class="page-toolbar-right">
+                    <a class="btn btn-dark" th:href="@{/admin/requests/new}">New request</a>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="table-wrap">
+        <table class="data-table" id="requests-table">
+            <thead>
+            <tr>
+                <th>Subject</th>
+                <th>From</th>
+                <th>Category</th>
+                <th>Status</th>
+                <th>Created</th>
+                <th>Actions</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr th:each="item : ${requests}"
+                th:attr="data-search=${item.subject + ' ' + item.fromUserName}">
+                <td th:text="${item.subject}">Subject</td>
+                <td th:text="${item.fromUserName}">User</td>
+                <td th:text="${item.category}">REQUEST</td>
+                <td><span class="role-badge" th:text="${item.status}">OPEN</span></td>
+                <td th:text="${item.createdAt}">—</td>
+                <td><a class="btn btn-ghost" th:href="@{/admin/requests/{id}(id=${item.uuid})}">Open</a></td>
+            </tr>
+            <tr th:if="${#lists.isEmpty(requests)}"><td colspan="6">No requests yet.</td></tr>
+            </tbody>
+        </table>
+    </div>
+</section>
+</body>
+</html>

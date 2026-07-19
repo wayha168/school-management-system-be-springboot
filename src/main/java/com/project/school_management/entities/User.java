@@ -1,7 +1,12 @@
 package com.project.school_management.entities;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
+
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -10,6 +15,9 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
+import jakarta.persistence.JoinTable;
+import jakarta.persistence.Lob;
+import jakarta.persistence.ManyToMany;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
@@ -47,17 +55,27 @@ public class User {
     @JoinColumn(name = "school_uuid", nullable = false)
     private SchoolMag school;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "class_uuid")
-    private SchoolClass schoolClass;
+    /** Students enroll in many classes; teachers teach many classes. */
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+            name = "user_school_classes",
+            joinColumns = @JoinColumn(name = "user_uuid"),
+            inverseJoinColumns = @JoinColumn(name = "school_class_uuid"))
+    private List<SchoolClass> schoolClasses = new ArrayList<>();
 
-    /** Student grade level (e.g. Grade 10). */
     @Column(name = "grade", length = 50)
     private String grade;
 
-    /** Teacher room / classroom (e.g. Room A-12). */
     @Column(name = "room", length = 100)
     private String room;
+
+    @Lob
+    @JdbcTypeCode(SqlTypes.BINARY)
+    @Column(name = "profile_image_data")
+    private byte[] profileImageData;
+
+    @Column(name = "profile_image_content_type", length = 100)
+    private String profileImageContentType;
 
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
@@ -71,6 +89,10 @@ public class User {
         this.password = password;
         this.role = role;
         this.school = school;
+    }
+
+    public boolean hasProfileImage() {
+        return profileImageData != null && profileImageData.length > 0;
     }
 
     @PrePersist

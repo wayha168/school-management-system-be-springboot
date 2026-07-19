@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security"
+      th:replace="~{layout :: layout(~{::section})}">
+<body>
+<section th:fragment="section">
+    <div class="page-toolbar">
+        <div class="page-toolbar-main">
+            <div>
+                <h2 class="page-heading">Finance</h2>
+                <p class="muted" th:text="${staffView} ? 'Payroll and payments' : 'My account payments'">Finance</p>
+            </div>
+            <div class="page-toolbar-actions">
+                <div class="page-toolbar-left">
+                    <input type="search" class="search-input" placeholder="Search..."
+                           data-table-search="finance-payroll-table" data-view-search>
+                </div>
+                <div class="page-toolbar-right" sec:authorize="hasAuthority('FINANCE_WRITE')">
+                    <a class="btn btn-ghost" th:href="@{/admin/finance/payroll/new}" data-view-action="payroll">Add payroll</a>
+                    <a class="btn btn-dark" th:href="@{/admin/finance/payments/new}" data-view-action="payments" hidden>Add payment</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="view-switch-row">
+        <div class="view-switch" data-view-switch data-view-default="payroll" role="tablist" aria-label="Finance tables">
+            <button type="button" class="view-switch-btn is-active" data-view-target="payroll"
+                    data-search-table="finance-payroll-table">Payroll</button>
+            <button type="button" class="view-switch-btn" data-view-target="payments"
+                    data-search-table="finance-payments-table">Payments</button>
+        </div>
+    </div>
+
+    <div class="view-panel" data-view-panel="payroll" data-search-table="finance-payroll-table">
+        <div class="table-wrap">
+            <table class="data-table" id="finance-payroll-table">
+                <thead><tr><th>User</th><th>Period</th><th>Amount</th><th>Status</th><th>Note</th><th>Actions</th></tr></thead>
+                <tbody>
+                <tr th:each="item : ${payroll}" th:attr="data-search=${item.userName + ' ' + item.period}">
+                    <td>
+                        <a th:if="${staffView}" th:href="@{/admin/finance/users/{id}(id=${item.userUuid})}"
+                           th:text="${item.userName}">User</a>
+                        <span th:unless="${staffView}" th:text="${item.userName}">User</span>
+                    </td>
+                    <td th:text="${item.period}">2026-01</td>
+                    <td th:text="${item.amount}">0</td>
+                    <td th:text="${item.status}">DRAFT</td>
+                    <td th:text="${item.note} ?: '—'">—</td>
+                    <td>
+                        <button type="button" class="icon-action danger" title="Delete"
+                                sec:authorize="hasAuthority('FINANCE_WRITE')"
+                                data-confirm-open
+                                th:attr="data-confirm-action=@{/admin/finance/payroll/{id}/delete(id=${item.uuid})},
+                                         data-confirm-message=${'Delete payroll for ' + item.userName + '?'}">
+                            Del
+                        </button>
+                    </td>
+                </tr>
+                <tr th:if="${#lists.isEmpty(payroll)}"><td colspan="6">No payroll records.</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="view-panel" data-view-panel="payments" data-search-table="finance-payments-table" hidden>
+        <div class="table-wrap">
+            <table class="data-table" id="finance-payments-table">
+                <thead><tr><th>User</th><th>Type</th><th>Amount</th><th>Due</th><th>Status</th><th>Note</th><th>Actions</th></tr></thead>
+                <tbody>
+                <tr th:each="item : ${payments}"
+                    th:attr="data-search=${item.userName + ' ' + item.paymentType}">
+                    <td>
+                        <a th:if="${staffView}" th:href="@{/admin/finance/users/{id}(id=${item.userUuid})}"
+                           th:text="${item.userName}">User</a>
+                        <span th:unless="${staffView}" th:text="${item.userName}">User</span>
+                    </td>
+                    <td th:text="${item.paymentType}">TUITION</td>
+                    <td th:text="${item.amount}">0</td>
+                    <td th:text="${item.dueDate} ?: '—'">—</td>
+                    <td th:text="${item.status}">PENDING</td>
+                    <td th:text="${item.note} ?: '—'">—</td>
+                    <td>
+                        <button type="button" class="icon-action danger" title="Delete"
+                                sec:authorize="hasAuthority('FINANCE_WRITE')"
+                                data-confirm-open
+                                th:attr="data-confirm-action=@{/admin/finance/payments/{id}/delete(id=${item.uuid})},
+                                         data-confirm-message=${'Delete payment for ' + item.userName + '?'}">
+                            Del
+                        </button>
+                    </td>
+                </tr>
+                <tr th:if="${#lists.isEmpty(payments)}"><td colspan="7">No payment records.</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</section>
+</body>
+</html>

@@ -19,11 +19,15 @@ public interface UserRepository extends JpaRepository<User, UUID> {
 
     long countByRole_Name(RoleName roleName);
 
+    long countBySchool_UuidAndRole_Name(UUID schoolUuid, RoleName roleName);
+
+    long countBySchool_Uuid(UUID schoolUuid);
+
     @Query("""
-            SELECT u FROM User u
+            SELECT DISTINCT u FROM User u
             JOIN FETCH u.role
             JOIN FETCH u.school
-            LEFT JOIN FETCH u.schoolClass
+            LEFT JOIN FETCH u.schoolClasses
             WHERE u.uuid = :id
             """)
     Optional<User> findDetailedById(@Param("id") UUID id);
@@ -32,15 +36,24 @@ public interface UserRepository extends JpaRepository<User, UUID> {
             SELECT DISTINCT u FROM User u
             JOIN FETCH u.role
             JOIN FETCH u.school
-            LEFT JOIN FETCH u.schoolClass
+            LEFT JOIN FETCH u.schoolClasses
             """)
     List<User> findAllDetailed();
 
     @Query("""
-            SELECT u FROM User u
+            SELECT DISTINCT u FROM User u
             JOIN FETCH u.role
             JOIN FETCH u.school
-            LEFT JOIN FETCH u.schoolClass
+            LEFT JOIN FETCH u.schoolClasses
+            WHERE u.school.uuid = :schoolUuid
+            """)
+    List<User> findDetailedBySchoolUuid(@Param("schoolUuid") UUID schoolUuid);
+
+    @Query("""
+            SELECT DISTINCT u FROM User u
+            JOIN FETCH u.role
+            JOIN FETCH u.school
+            LEFT JOIN FETCH u.schoolClasses
             WHERE u.email = :email
             """)
     Optional<User> findDetailedByEmail(@Param("email") String email);

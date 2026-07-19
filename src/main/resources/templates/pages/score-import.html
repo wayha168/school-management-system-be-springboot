@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{layout :: layout(~{::section})}">
+<body>
+<section th:fragment="section">
+    <div class="page-toolbar">
+        <div>
+            <h2 class="page-heading">Import scores</h2>
+            <p class="muted">Upload an Excel (.xlsx) file for a target class</p>
+        </div>
+        <a class="btn btn-ghost" th:href="@{/admin/scores}">Back</a>
+    </div>
+    <article class="form-card form-card-wide">
+        <p class="muted">Columns: Student Email, Student Name, Class, Generation, Subject, Term, Score, Max Score, Remark</p>
+        <form th:action="@{/admin/scores/import}" method="post" enctype="multipart/form-data" class="form-grid">
+            <label>Target class
+                <select name="classUuid" required>
+                    <option value="" disabled selected>Select class</option>
+                    <option th:each="c : ${classes}"
+                            th:value="${c.uuid}"
+                            th:text="${c.name + ' · ' + (c.generationCode ?: '')}">Class</option>
+                </select>
+            </label>
+            <label class="span-2">Excel file (.xlsx)
+                <input type="file" name="file"
+                       accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" required>
+            </label>
+            <div class="modal-actions span-3">
+                <a class="btn btn-ghost" th:href="@{/admin/scores}">Cancel</a>
+                <button type="submit" class="btn btn-dark">Import</button>
+            </div>
+        </form>
+    </article>
+</section>
+</body>
+</html>

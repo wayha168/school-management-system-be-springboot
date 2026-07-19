@@ -40,15 +40,6 @@
             </div>
         </article>
         <article class="summary-card">
-            <div class="summary-icon tone-gold">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-            </div>
-            <div>
-                <span class="summary-label">Roles</span>
-                <p class="summary-value" th:text="${roleCount}">0</p>
-            </div>
-        </article>
-        <article class="summary-card">
             <div class="summary-icon tone-teal">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
             </div>
@@ -75,53 +66,37 @@
                 <p class="summary-value" th:text="${staffCount}">0</p>
             </div>
         </article>
-        <article class="summary-card">
-            <div class="summary-icon tone-indigo">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+    </div>
+
+    <div class="chart-grid">
+        <article class="panel-card chart-card">
+            <div class="page-intro compact">
+                <div>
+                    <h3 class="section-title">People statistics</h3>
+                    <p class="muted">Users, teachers, students and staff</p>
+                </div>
             </div>
-            <div>
-                <span class="summary-label">Permissions</span>
-                <p class="summary-value" th:text="${permissionCount}">0</p>
+            <canvas id="peopleChart"></canvas>
+        </article>
+        <article class="panel-card chart-card">
+            <div class="page-intro compact">
+                <div>
+                    <h3 class="section-title">Students vs teachers</h3>
+                    <p class="muted">Quick role comparison</p>
+                </div>
             </div>
+            <canvas id="roleChart"></canvas>
         </article>
     </div>
 
-    <article class="panel-card analytics-panel" th:if="${dataUser != null}">
-        <div class="page-intro compact">
-            <div>
-                <h3 class="section-title">Account snapshot</h3>
-                <p class="muted">Signed-in admin details and granted authorities.</p>
-            </div>
-        </div>
-        <div class="account-grid">
-            <div>
-                <span class="label">Name</span>
-                <p th:text="${dataUser.name}">Name</p>
-            </div>
-            <div>
-                <span class="label">Email</span>
-                <p th:text="${dataUser.email}">email</p>
-            </div>
-            <div>
-                <span class="label">Role</span>
-                <p>
-                    <span class="role-badge"
-                          th:classappend="' role-' + ${#strings.toLowerCase(dataUser.roleLabel)}"
-                          th:text="${dataUser.roleLabel}">ADMIN</span>
-                </p>
-            </div>
-            <div>
-                <span class="label">School</span>
-                <p th:text="${dataUser.schoolName} ?: '-'">School</p>
-            </div>
-        </div>
-        <div class="permission-list" th:if="${dataUser.permissions != null}">
-            <span class="label">Permissions</span>
-            <div class="chips">
-                <span class="perm-chip" th:each="perm : ${dataUser.permissions}" th:text="${perm}">PERM</span>
-            </div>
-        </div>
-    </article>
+    <script th:inline="javascript">
+        window.__dashboardCharts = {
+            labels: /*[[${chartLabels}]]*/ [],
+            values: /*[[${chartValues}]]*/ [],
+            teachers: /*[[${teacherCount}]]*/ 0,
+            students: /*[[${studentCount}]]*/ 0
+        };
+    </script>
 </section>
 </body>
 </html>

@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{layout :: layout(~{::section})}">
+<body>
+<section th:fragment="section">
+    <div class="page-toolbar">
+        <div class="page-toolbar-main">
+            <h2 class="page-heading">New request</h2>
+            <p class="muted">Send a complaint or request to school staff</p>
+            <div class="page-toolbar-actions row">
+                <a class="btn btn-ghost" th:href="@{/admin/requests}">Back</a>
+            </div>
+        </div>
+    </div>
+    <article class="form-card form-card-wide">
+        <form th:action="@{/admin/requests}" method="post" class="form-grid">
+            <label>Category
+                <select name="category" required>
+                    <option th:each="c : ${categories}" th:value="${c}" th:text="${c}">REQUEST</option>
+                </select>
+            </label>
+            <label class="span-2">Subject
+                <input name="subject" required maxlength="200" placeholder="Short summary">
+            </label>
+            <label class="span-3">Message
+                <textarea name="body" required rows="6" maxlength="2000"
+                          placeholder="Describe your request or complaint..."></textarea>
+            </label>
+            <div class="modal-actions span-3">
+                <a class="btn btn-ghost" th:href="@{/admin/requests}">Cancel</a>
+                <button type="submit" class="btn btn-dark">Submit</button>
+            </div>
+        </form>
+    </article>
+</section>
+</body>
+</html>

@@ -19,22 +19,29 @@ public class SchoolResponse {
     private String phone;
     private String email;
     private String website;
-    private String logo;
-    private String banner;
+    private boolean hasLogo;
+    private boolean hasBanner;
+    private String logoUrl;
+    private String bannerUrl;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
     public static SchoolResponse from(SchoolMag school) {
+        UUID id = school.getUuid();
+        boolean hasLogo = school.hasLogo();
+        boolean hasBanner = school.hasBanner();
         return SchoolResponse.builder()
-                .uuid(school.getUuid())
+                .uuid(id)
                 .name(school.getName())
                 .description(school.getDescription())
                 .address(school.getAddress())
                 .phone(school.getPhone())
                 .email(school.getEmail())
                 .website(school.getWebsite())
-                .logo(school.getLogo())
-                .banner(school.getBanner())
+                .hasLogo(hasLogo)
+                .hasBanner(hasBanner)
+                .logoUrl(hasLogo && id != null ? "/api/v1/schools/" + id + "/logo" : null)
+                .bannerUrl(hasBanner && id != null ? "/api/v1/schools/" + id + "/banner" : null)
                 .createdAt(school.getCreatedAt())
                 .updatedAt(school.getUpdatedAt())
                 .build();

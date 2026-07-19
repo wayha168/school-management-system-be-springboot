@@ -5,19 +5,41 @@
 <body>
 <section th:fragment="section">
     <div class="page-toolbar">
-        <div>
-            <h2 class="page-heading">Users</h2>
-            <p class="muted">Manage platform users · real-time online via WebSocket</p>
-        </div>
-        <div class="page-toolbar-actions">
-            <a class="btn btn-dark"
-               sec:authorize="hasAuthority('USER_WRITE')"
-               th:href="@{/admin/users/new}">Add Users</a>
-            <input type="search"
-                   class="search-input"
-                   placeholder="Search name or email..."
-                   data-table-search="users-table"
-                   aria-label="Search users">
+        <div class="page-toolbar-main">
+            <div>
+                <h2 class="page-heading">Users</h2>
+                <p class="muted">Manage platform users · real-time online via WebSocket</p>
+            </div>
+            <div class="page-toolbar-actions">
+                <div class="page-toolbar-left">
+                    <input type="search"
+                           class="search-input"
+                           placeholder="Search name or email..."
+                           data-table-search="users-table"
+                           aria-label="Search users">
+                    <form class="filter-bar" method="get" th:action="@{/admin/users}">
+                        <select name="role" onchange="this.form.submit()" aria-label="Filter by role">
+                            <option value="">All roles</option>
+                            <option th:each="r : ${roleFilters}"
+                                    th:value="${r}"
+                                    th:selected="${selectedRole != null and selectedRole == r}"
+                                    th:text="${T(com.project.school_management.dto.user.DataUser).displayRole(r)}">Teacher</option>
+                        </select>
+                        <select name="generation" onchange="this.form.submit()" aria-label="Filter by generation">
+                            <option value="">All generations</option>
+                            <option th:each="g : ${generations}"
+                                    th:value="${g}"
+                                    th:selected="${selectedGeneration != null and selectedGeneration == g}"
+                                    th:text="${'G' + g}">G9</option>
+                        </select>
+                    </form>
+                </div>
+                <div class="page-toolbar-right">
+                    <a class="btn btn-dark"
+                       sec:authorize="hasAuthority('USER_WRITE')"
+                       th:href="@{/admin/users/new}">Add Users</a>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -47,7 +69,12 @@
                           th:text="${#strings.substring(user.uuid.toString(),0,8)}">abcd1234</code>
                 </td>
                 <td>
-                    <span class="avatar-circle"
+                    <img th:if="${user.hasProfileImage}"
+                         class="avatar-photo"
+                         th:src="${user.profileImageUrl}"
+                         th:alt="${user.name}">
+                    <span th:unless="${user.hasProfileImage}"
+                          class="avatar-circle"
                           th:text="${#strings.substring(user.name,0,1)}">U</span>
                 </td>
                 <td th:text="${user.name}">Name</td>
@@ -57,16 +84,12 @@
                           th:classappend="${user.role != null} ? ' role-' + ${#strings.toLowerCase(user.role.name())} : ''"
                           th:text="${user.role}">ADMIN</span>
                 </td>
-                <td>
-                    <span th:if="${user.role != null and user.role.name() == 'STUDENT'}"
-                          th:text="${user.grade} ?: '—'">Grade</span>
-                    <span th:unless="${user.role != null and user.role.name() == 'STUDENT'}">—</span>
-                </td>
+                <td th:text="${user.grade} ?: '—'">Grade</td>
                 <td>
                     <span th:if="${user.role != null and user.role.name() == 'TEACHER'}"
-                          th:text="${user.room} ?: (user.className ?: '—')">Room</span>
+                          th:text="${user.room} ?: (user.classNames ?: '—')">Room</span>
                     <span th:if="${user.role != null and user.role.name() == 'STUDENT'}"
-                          th:text="${user.className} ?: '—'">Class</span>
+                          th:text="${user.classNames} ?: '—'">Class</span>
                     <span th:if="${user.role == null or (user.role.name() != 'TEACHER' and user.role.name() != 'STUDENT')}">—</span>
                 </td>
                 <td>

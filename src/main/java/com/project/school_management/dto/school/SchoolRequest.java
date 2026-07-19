@@ -28,9 +28,9 @@ public class SchoolRequest {
     @NotBlank
     private String website;
 
-    @NotBlank
-    private String logo;
+    /** Optional base64 / data-URL for API clients (form uploads use multipart instead). */
+    private String logoBase64;
 
-    @NotBlank
-    private String banner;
+    /** Optional base64 / data-URL for API clients (form uploads use multipart instead). */
+    private String bannerBase64;
 }

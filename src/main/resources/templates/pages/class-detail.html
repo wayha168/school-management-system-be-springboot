@@ -5,14 +5,14 @@
 <body>
 <section th:fragment="section">
     <div class="page-toolbar">
-        <div>
+        <div class="page-toolbar-main">
             <h2 class="page-heading">Class details</h2>
             <p class="muted" th:text="${item.name}">Class</p>
-        </div>
-        <div class="page-toolbar-actions row">
-            <a class="btn btn-ghost" th:href="@{/admin/classes}">Back</a>
-            <a class="btn btn-dark" sec:authorize="hasAuthority('CLASS_WRITE')"
-               th:href="@{/admin/classes/{id}/edit(id=${item.uuid})}">Edit</a>
+            <div class="page-toolbar-actions row">
+                <a class="btn btn-ghost" th:href="@{/admin/classes}">Back</a>
+                <a class="btn btn-dark" sec:authorize="hasAuthority('CLASS_WRITE')"
+                   th:href="@{/admin/classes/{id}/edit(id=${item.uuid})}">Edit</a>
+            </div>
         </div>
     </div>
     <article class="form-card">
@@ -20,6 +20,8 @@
             <div><span class="label">ID</span><p><code th:text="${item.uuid}">uuid</code></p></div>
             <div><span class="label">Name</span><p th:text="${item.name}">Name</p></div>
             <div><span class="label">Grade</span><p th:text="${item.grade} ?: '—'">Grade</p></div>
+            <div><span class="label">Generation</span><p th:text="${item.generationDisplay} ?: (item.generationCode ?: '—')">G9 · 9th generation</p></div>
+            <div><span class="label">Academic year</span><p th:text="${item.academicYear} ?: '—'">2025</p></div>
             <div><span class="label">School</span><p th:text="${item.schoolName}">School</p></div>
             <div><span class="label">Status</span><p class="status-text status-active">Active</p></div>
         </div>

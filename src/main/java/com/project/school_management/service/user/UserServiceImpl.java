@@ -1,12 +1,18 @@
 package com.project.school_management.service.user;
 
+import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
+import java.util.Set;
 import java.util.UUID;
 
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
+import com.project.school_management.dto.school.SchoolImage;
 import com.project.school_management.dto.user.DataUser;
 import com.project.school_management.dto.user.UserRequest;
 import com.project.school_management.dto.user.UserResponse;
@@ -21,11 +27,16 @@ import com.project.school_management.repository.RoleRepository;
 import com.project.school_management.repository.SchoolClassRepository;
 import com.project.school_management.repository.SchoolRepository;
 import com.project.school_management.repository.UserRepository;
+import com.project.school_management.security.SchoolScopeService;
 import com.project.school_management.service.permission.PermissionService;
 
 @Service
 @Transactional
 public class UserServiceImpl implements UserService {
+
+    private static final long MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+    private static final Set<String> ALLOWED_TYPES = Set.of(
+            "image/jpeg", "image/jpg", "image/png", "image/webp", "image/gif");
 
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
@@ -33,6 +44,7 @@ public class UserServiceImpl implements UserService {
     private final SchoolClassRepository schoolClassRepository;
     private final PasswordEncoder passwordEncoder;
     private final PermissionService permissionService;
+    private final SchoolScopeService schoolScopeService;
 
     public UserServiceImpl(
             UserRepository userRepository,
@@ -40,20 +52,28 @@ public class UserServiceImpl implements UserService {
             SchoolRepository schoolRepository,
             SchoolClassRepository schoolClassRepository,
             PasswordEncoder passwordEncoder,
-            PermissionService permissionService) {
+            PermissionService permissionService,
+            SchoolScopeService schoolScopeService) {
         this.userRepository = userRepository;
         this.roleRepository = roleRepository;
         this.schoolRepository = schoolRepository;
         this.schoolClassRepository = schoolClassRepository;
         this.passwordEncoder = passwordEncoder;
         this.permissionService = permissionService;
+        this.schoolScopeService = schoolScopeService;
     }
 
     @Override
     public UserResponse create(UserRequest request) {
+        return create(request, null);
+    }
+
+    @Override
+    public UserResponse create(UserRequest request, MultipartFile profileImage) {
         if (userRepository.existsByEmail(request.getEmail())) {
             throw new IllegalArgumentException("Email already exists: " + request.getEmail());
         }
+        schoolScopeService.assertSchoolAccess(request.getSchoolUuid());
 
         User user = new User();
         user.setName(request.getName());
@@ -61,9 +81,19 @@ public class UserServiceImpl implements UserService {
         user.setPassword(passwordEncoder.encode(request.getPassword()));
         user.setRole(findRole(request.getRoleUuid()));
         user.setSchool(findSchool(request.getSchoolUuid()));
-        user.setSchoolClass(resolveClass(request.getClassUuid()));
-        user.setGrade(blankToNull(request.getGrade()));
+        List<SchoolClass> classes = resolveClasses(request.getClassUuids());
+        user.setSchoolClasses(classes);
+        String grade = blankToNull(request.getGrade());
+        if (grade == null && !classes.isEmpty()) {
+            grade = classes.stream()
+                    .map(SchoolClass::getGrade)
+                    .filter(g -> g != null && !g.isBlank())
+                    .findFirst()
+                    .orElse(null);
+        }
+        user.setGrade(grade);
         user.setRoom(blankToNull(request.getRoom()));
+        applyProfileImage(user, profileImage, false);
         User saved = userRepository.save(user);
         return UserResponse.from(findUser(saved.getUuid()));
     }
@@ -71,18 +101,36 @@ public class UserServiceImpl implements UserService {
     @Override
     @Transactional(readOnly = true)
     public UserResponse getById(UUID id) {
-        return UserResponse.from(findUser(id));
+        User user = findUser(id);
+        if (user.getSchool() != null) {
+            schoolScopeService.assertSchoolAccess(user.getSchool().getUuid());
+        }
+        return UserResponse.from(user);
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<UserResponse> getAll() {
-        return userRepository.findAllDetailed().stream().map(UserResponse::from).toList();
+        return schoolScopeService.scopedSchoolUuid()
+                .map(schoolUuid -> userRepository.findDetailedBySchoolUuid(schoolUuid))
+                .orElseGet(userRepository::findAllDetailed)
+                .stream()
+                .map(UserResponse::from)
+                .toList();
     }
 
     @Override
     public UserResponse update(UUID id, UserUpdateRequest request) {
+        return update(id, request, null);
+    }
+
+    @Override
+    public UserResponse update(UUID id, UserUpdateRequest request, MultipartFile profileImage) {
         User user = findUser(id);
+        if (user.getSchool() != null) {
+            schoolScopeService.assertSchoolAccess(user.getSchool().getUuid());
+        }
+        schoolScopeService.assertSchoolAccess(request.getSchoolUuid());
 
         userRepository.findByEmail(request.getEmail())
                 .filter(existing -> !existing.getUuid().equals(id))
@@ -97,9 +145,19 @@ public class UserServiceImpl implements UserService {
         }
         user.setRole(findRole(request.getRoleUuid()));
         user.setSchool(findSchool(request.getSchoolUuid()));
-        user.setSchoolClass(resolveClass(request.getClassUuid()));
-        user.setGrade(blankToNull(request.getGrade()));
+        List<SchoolClass> classes = resolveClasses(request.getClassUuids());
+        user.setSchoolClasses(classes);
+        String grade = blankToNull(request.getGrade());
+        if (grade == null && !classes.isEmpty()) {
+            grade = classes.stream()
+                    .map(SchoolClass::getGrade)
+                    .filter(g -> g != null && !g.isBlank())
+                    .findFirst()
+                    .orElse(null);
+        }
+        user.setGrade(grade);
         user.setRoom(blankToNull(request.getRoom()));
+        applyProfileImage(user, profileImage, true);
         userRepository.save(user);
         return UserResponse.from(findUser(id));
     }
@@ -123,6 +181,64 @@ public class UserServiceImpl implements UserService {
         return DataUser.from(user, permissions);
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public SchoolImage getProfileImage(UUID id) {
+        User user = findUser(id);
+        if (user.getSchool() != null) {
+            schoolScopeService.assertSchoolAccess(user.getSchool().getUuid());
+        }
+        if (!user.hasProfileImage()) {
+            throw new ExceptionNotFound("Profile image not found for user: " + id);
+        }
+        String contentType = user.getProfileImageContentType();
+        if (contentType == null || contentType.isBlank()) {
+            contentType = "image/png";
+        }
+        return new SchoolImage(user.getProfileImageData(), contentType);
+    }
+
+    private void applyProfileImage(User user, MultipartFile file, boolean keepExisting) {
+        if (file != null && !file.isEmpty()) {
+            String contentType = normalizeContentType(file.getContentType());
+            validateContentType(contentType);
+            try {
+                byte[] data = file.getBytes();
+                validateSize(data.length);
+                user.setProfileImageData(data);
+                user.setProfileImageContentType(contentType);
+            } catch (IOException ex) {
+                throw new IllegalArgumentException("Failed to read profile image", ex);
+            }
+        } else if (!keepExisting) {
+            user.setProfileImageData(null);
+            user.setProfileImageContentType(null);
+        }
+    }
+
+    private static void validateContentType(String contentType) {
+        if (contentType == null || !ALLOWED_TYPES.contains(contentType.toLowerCase(Locale.ROOT))) {
+            throw new IllegalArgumentException("Only JPEG, PNG, WEBP, or GIF images are allowed");
+        }
+    }
+
+    private static void validateSize(int length) {
+        if (length <= 0) {
+            throw new IllegalArgumentException("Image file is empty");
+        }
+        if (length > MAX_IMAGE_BYTES) {
+            throw new IllegalArgumentException("Image must be 5MB or smaller");
+        }
+    }
+
+    private static String normalizeContentType(String contentType) {
+        if (contentType == null || contentType.isBlank()) {
+            return "image/png";
+        }
+        String normalized = contentType.trim().toLowerCase(Locale.ROOT);
+        return "image/jpg".equals(normalized) ? "image/jpeg" : normalized;
+    }
+
     private User findUser(UUID id) {
         return userRepository.findDetailedById(id)
                 .orElseThrow(() -> new UserNotFound("User not found: " + id));
@@ -138,12 +254,19 @@ public class UserServiceImpl implements UserService {
                 .orElseThrow(() -> new ExceptionNotFound("School not found: " + id));
     }
 
-    private SchoolClass resolveClass(UUID classUuid) {
-        if (classUuid == null) {
-            return null;
+    private List<SchoolClass> resolveClasses(List<UUID> classUuids) {
+        if (classUuids == null || classUuids.isEmpty()) {
+            return new ArrayList<>();
         }
-        return schoolClassRepository.findById(classUuid)
-                .orElseThrow(() -> new ExceptionNotFound("Class not found: " + classUuid));
+        List<SchoolClass> classes = new ArrayList<>();
+        for (UUID classUuid : classUuids) {
+            if (classUuid == null) {
+                continue;
+            }
+            classes.add(schoolClassRepository.findById(classUuid)
+                    .orElseThrow(() -> new ExceptionNotFound("Class not found: " + classUuid)));
+        }
+        return classes;
     }
 
     private static String blankToNull(String value) {

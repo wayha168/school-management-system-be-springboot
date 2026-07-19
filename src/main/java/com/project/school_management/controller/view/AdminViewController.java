@@ -1,9 +1,13 @@
 package com.project.school_management.controller.view;
 
+import java.math.BigDecimal;
 import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
 
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Controller;
@@ -13,13 +17,18 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import com.project.school_management.dto.permission.PermissionAssignRequest;
 import com.project.school_management.dto.permission.RolePermissionRequest;
 import com.project.school_management.dto.role.RoleRequest;
+import com.project.school_management.dto.school.SchoolImage;
 import com.project.school_management.dto.school.SchoolRequest;
 import com.project.school_management.dto.schoolclass.SchoolClassRequest;
+import com.project.school_management.dto.schoolclass.SchoolClassResponse;
+import com.project.school_management.dto.score.ScoreRequest;
 import com.project.school_management.dto.user.DataUser;
 import com.project.school_management.dto.user.UserRequest;
 import com.project.school_management.dto.user.UserResponse;
@@ -29,11 +38,13 @@ import com.project.school_management.enums.RoleName;
 import com.project.school_management.exception.ErrorRuntime;
 import com.project.school_management.exception.UserNotFound;
 import com.project.school_management.repository.UserRepository;
+import com.project.school_management.security.SchoolScopeService;
 import com.project.school_management.service.permission.PermissionService;
 import com.project.school_management.service.presence.PresenceTracker;
 import com.project.school_management.service.role.RoleService;
 import com.project.school_management.service.school.SchoolService;
 import com.project.school_management.service.schoolclass.SchoolClassService;
+import com.project.school_management.service.score.ScoreService;
 import com.project.school_management.service.user.UserService;
 
 @Controller
@@ -47,6 +58,8 @@ public class AdminViewController {
     private final PermissionService permissionService;
     private final UserRepository userRepository;
     private final PresenceTracker presenceTracker;
+    private final SchoolScopeService schoolScopeService;
+    private final ScoreService scoreService;
 
     public AdminViewController(
             SchoolService schoolService,
@@ -55,7 +68,9 @@ public class AdminViewController {
             RoleService roleService,
             PermissionService permissionService,
             UserRepository userRepository,
-            PresenceTracker presenceTracker) {
+            PresenceTracker presenceTracker,
+            SchoolScopeService schoolScopeService,
+            ScoreService scoreService) {
         this.schoolService = schoolService;
         this.userService = userService;
         this.schoolClassService = schoolClassService;
@@ -63,6 +78,8 @@ public class AdminViewController {
         this.permissionService = permissionService;
         this.userRepository = userRepository;
         this.presenceTracker = presenceTracker;
+        this.schoolScopeService = schoolScopeService;
+        this.scoreService = scoreService;
     }
 
     @GetMapping({"/", "/dashboard"})
@@ -73,11 +90,31 @@ public class AdminViewController {
             model.addAttribute("userCount", userService.getAll().size());
             model.addAttribute("classCount", schoolClassService.getAll().size());
             model.addAttribute("roleCount", roleService.getAll().size());
-            model.addAttribute("teacherCount", userRepository.countByRole_Name(RoleName.TEACHER));
-            model.addAttribute("studentCount", userRepository.countByRole_Name(RoleName.STUDENT));
-            model.addAttribute("staffCount", userRepository.countByRole_Name(RoleName.STAFF));
+            var schoolScope = schoolScopeService.scopedSchoolUuid();
+            if (schoolScope.isPresent()) {
+                UUID schoolUuid = schoolScope.get();
+                model.addAttribute("teacherCount", userRepository.countBySchool_UuidAndRole_Name(schoolUuid, RoleName.TEACHER));
+                model.addAttribute("studentCount", userRepository.countBySchool_UuidAndRole_Name(schoolUuid, RoleName.STUDENT));
+                model.addAttribute("staffCount", userRepository.countBySchool_UuidAndRole_Name(schoolUuid, RoleName.STAFF));
+            } else {
+                model.addAttribute("teacherCount", userRepository.countByRole_Name(RoleName.TEACHER));
+                model.addAttribute("studentCount", userRepository.countByRole_Name(RoleName.STUDENT));
+                model.addAttribute("staffCount", userRepository.countByRole_Name(RoleName.STAFF));
+            }
             model.addAttribute("permissionCount", Permission.values().length);
             model.addAttribute("onlineCount", presenceTracker.snapshot().getOnlineCount());
+            model.addAttribute(
+                    "chartLabels",
+                    List.of("Users", "Teachers", "Students", "Staff", "Classes", "Schools"));
+            model.addAttribute(
+                    "chartValues",
+                    List.of(
+                            model.getAttribute("userCount"),
+                            model.getAttribute("teacherCount"),
+                            model.getAttribute("studentCount"),
+                            model.getAttribute("staffCount"),
+                            model.getAttribute("classCount"),
+                            model.getAttribute("schoolCount")));
             return "pages/dashboard";
         } catch (UserNotFound | ErrorRuntime ex) {
             redirectAttributes.addFlashAttribute("error", ex.getMessage());
@@ -139,7 +176,7 @@ public class AdminViewController {
         }
     }
 
-    @PostMapping("/schools")
+    @PostMapping(path = "/schools", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize("hasAuthority('SCHOOL_WRITE')")
     public String createSchool(
             @RequestParam String name,
@@ -148,12 +185,12 @@ public class AdminViewController {
             @RequestParam String phone,
             @RequestParam String email,
             @RequestParam String website,
-            @RequestParam(defaultValue = "/logo.png") String logo,
-            @RequestParam(defaultValue = "/banner.png") String banner,
+            @RequestParam(required = false) MultipartFile logo,
+            @RequestParam(required = false) MultipartFile banner,
             RedirectAttributes ra) {
         try {
-            SchoolRequest request = buildSchoolRequest(name, description, address, phone, email, website, logo, banner);
-            schoolService.create(request);
+            SchoolRequest request = buildSchoolRequest(name, description, address, phone, email, website);
+            schoolService.create(request, logo, banner);
             ra.addFlashAttribute("success", "School created");
         } catch (RuntimeException ex) {
             ra.addFlashAttribute("error", ex.getMessage());
@@ -162,7 +199,7 @@ public class AdminViewController {
         return "redirect:/admin/schools";
     }
 
-    @PostMapping("/schools/{id}/update")
+    @PostMapping(path = "/schools/{id}/update", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize("hasAuthority('SCHOOL_WRITE')")
     public String updateSchool(
             @PathVariable UUID id,
@@ -172,18 +209,40 @@ public class AdminViewController {
             @RequestParam String phone,
             @RequestParam String email,
             @RequestParam String website,
-            @RequestParam(defaultValue = "/logo.png") String logo,
-            @RequestParam(defaultValue = "/banner.png") String banner,
+            @RequestParam(required = false) MultipartFile logo,
+            @RequestParam(required = false) MultipartFile banner,
             RedirectAttributes ra) {
         try {
-            SchoolRequest request = buildSchoolRequest(name, description, address, phone, email, website, logo, banner);
-            schoolService.update(id, request);
+            SchoolRequest request = buildSchoolRequest(name, description, address, phone, email, website);
+            schoolService.update(id, request, logo, banner);
             ra.addFlashAttribute("success", "School updated");
             return "redirect:/admin/schools/" + id;
         } catch (RuntimeException ex) {
             ra.addFlashAttribute("error", ex.getMessage());
             return "redirect:/admin/schools/" + id + "/edit";
         }
+    }
+
+    @GetMapping("/schools/{id}/logo")
+    @PreAuthorize("hasAuthority('SCHOOL_READ')")
+    @ResponseBody
+    public ResponseEntity<byte[]> schoolLogo(@PathVariable UUID id) {
+        SchoolImage image = schoolService.getLogo(id);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CACHE_CONTROL, "private, max-age=3600")
+                .contentType(MediaType.parseMediaType(image.contentType()))
+                .body(image.data());
+    }
+
+    @GetMapping("/schools/{id}/banner")
+    @PreAuthorize("hasAuthority('SCHOOL_READ')")
+    @ResponseBody
+    public ResponseEntity<byte[]> schoolBanner(@PathVariable UUID id) {
+        SchoolImage image = schoolService.getBanner(id);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CACHE_CONTROL, "private, max-age=3600")
+                .contentType(MediaType.parseMediaType(image.contentType()))
+                .body(image.data());
     }
 
     @PostMapping("/schools/{id}/delete")
@@ -202,10 +261,33 @@ public class AdminViewController {
 
     @GetMapping("/users")
     @PreAuthorize("hasAuthority('USER_READ')")
-    public String users(Authentication authentication, Model model, RedirectAttributes ra) {
+    public String users(
+            @RequestParam(required = false) Integer generation,
+            @RequestParam(required = false) RoleName role,
+            Authentication authentication,
+            Model model,
+            RedirectAttributes ra) {
         try {
             fillCommon(model, authentication, "users", "Users");
-            model.addAttribute("users", userService.getAll());
+            List<UserResponse> users = userService.getAll();
+            if (role != null) {
+                users = users.stream()
+                        .filter(u -> u.getRole() == role)
+                        .toList();
+            }
+            if (generation != null) {
+                users = users.stream()
+                        .filter(u -> u.getClasses() != null
+                                && u.getClasses().stream().anyMatch(c -> generation.equals(c.getGeneration())))
+                        .toList();
+            }
+            model.addAttribute("users", users);
+            model.addAttribute("generations", schoolClassService.listGenerations());
+            model.addAttribute("selectedGeneration", generation);
+            model.addAttribute("selectedRole", role);
+            model.addAttribute("roleFilters", List.of(
+                    RoleName.TEACHER, RoleName.STUDENT, RoleName.STAFF,
+                    RoleName.PRINCIPAL, RoleName.ADMIN, RoleName.SUPERADMIN));
             model.addAttribute("onlineEmails", presenceTracker.snapshot().getOnlineEmails());
             return "pages/users";
         } catch (Exception ex) {
@@ -218,9 +300,7 @@ public class AdminViewController {
     @PreAuthorize("hasAuthority('USER_WRITE')")
     public String userCreateForm(Authentication authentication, Model model) {
         fillCommon(model, authentication, "users", "Add User");
-        model.addAttribute("roles", roleService.getAll());
-        model.addAttribute("schools", schoolService.getAll());
-        model.addAttribute("classes", schoolClassService.getAll());
+        fillUserFormOptions(model);
         model.addAttribute("mode", "create");
         return "pages/user-form";
     }
@@ -246,9 +326,7 @@ public class AdminViewController {
         try {
             fillCommon(model, authentication, "users", "Edit User");
             model.addAttribute("user", userService.getById(id));
-            model.addAttribute("roles", roleService.getAll());
-            model.addAttribute("schools", schoolService.getAll());
-            model.addAttribute("classes", schoolClassService.getAll());
+            fillUserFormOptions(model);
             model.addAttribute("mode", "edit");
             return "pages/user-form";
         } catch (Exception ex) {
@@ -257,29 +335,31 @@ public class AdminViewController {
         }
     }
 
-    @PostMapping("/users")
+    @PostMapping(path = "/users", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize("hasAuthority('USER_WRITE')")
     public String createUser(
-            @RequestParam String name,
+            @RequestParam String firstName,
+            @RequestParam String lastName,
             @RequestParam String email,
             @RequestParam String password,
             @RequestParam UUID roleUuid,
             @RequestParam UUID schoolUuid,
-            @RequestParam(required = false) String classUuid,
+            @RequestParam(required = false) List<UUID> classUuids,
             @RequestParam(required = false) String grade,
             @RequestParam(required = false) String room,
+            @RequestParam(required = false) MultipartFile profileImage,
             RedirectAttributes ra) {
         try {
             UserRequest request = new UserRequest();
-            request.setName(name);
+            request.setName(UserResponse.joinName(firstName, lastName));
             request.setEmail(email);
             request.setPassword(password);
             request.setRoleUuid(roleUuid);
             request.setSchoolUuid(schoolUuid);
-            request.setClassUuid(parseUuid(classUuid));
+            request.setClassUuids(classUuids);
             request.setGrade(grade);
             request.setRoom(room);
-            userService.create(request);
+            userService.create(request, profileImage);
             ra.addFlashAttribute("success", "User created");
         } catch (RuntimeException ex) {
             ra.addFlashAttribute("error", ex.getMessage());
@@ -288,30 +368,32 @@ public class AdminViewController {
         return "redirect:/admin/users";
     }
 
-    @PostMapping("/users/{id}/update")
+    @PostMapping(path = "/users/{id}/update", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize("hasAuthority('USER_WRITE')")
     public String updateUser(
             @PathVariable UUID id,
-            @RequestParam String name,
+            @RequestParam String firstName,
+            @RequestParam String lastName,
             @RequestParam String email,
             @RequestParam(required = false) String password,
             @RequestParam UUID roleUuid,
             @RequestParam UUID schoolUuid,
-            @RequestParam(required = false) String classUuid,
+            @RequestParam(required = false) List<UUID> classUuids,
             @RequestParam(required = false) String grade,
             @RequestParam(required = false) String room,
+            @RequestParam(required = false) MultipartFile profileImage,
             RedirectAttributes ra) {
         try {
             UserUpdateRequest request = new UserUpdateRequest();
-            request.setName(name);
+            request.setName(UserResponse.joinName(firstName, lastName));
             request.setEmail(email);
             request.setPassword(blankToNull(password));
             request.setRoleUuid(roleUuid);
             request.setSchoolUuid(schoolUuid);
-            request.setClassUuid(parseUuid(classUuid));
+            request.setClassUuids(classUuids);
             request.setGrade(grade);
             request.setRoom(room);
-            userService.update(id, request);
+            userService.update(id, request, profileImage);
             ra.addFlashAttribute("success", "User updated");
             return "redirect:/admin/users/" + id;
         } catch (RuntimeException ex) {
@@ -332,14 +414,34 @@ public class AdminViewController {
         return "redirect:/admin/users";
     }
 
+    @GetMapping("/users/{id}/avatar")
+    @PreAuthorize("hasAuthority('USER_READ')")
+    @ResponseBody
+    public ResponseEntity<byte[]> userAvatar(@PathVariable UUID id) {
+        SchoolImage image = userService.getProfileImage(id);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CACHE_CONTROL, "private, max-age=3600")
+                .contentType(MediaType.parseMediaType(image.contentType()))
+                .body(image.data());
+    }
+
     // ── Classes ──────────────────────────────────────────────────────────────
 
     @GetMapping("/classes")
     @PreAuthorize("hasAuthority('CLASS_READ')")
-    public String classes(Authentication authentication, Model model, RedirectAttributes ra) {
+    public String classes(
+            @RequestParam(required = false) Integer generation,
+            @RequestParam(required = false) String grade,
+            Authentication authentication,
+            Model model,
+            RedirectAttributes ra) {
         try {
             fillCommon(model, authentication, "classes", "Classes");
-            model.addAttribute("classes", schoolClassService.getAll());
+            model.addAttribute("classes", schoolClassService.filter(generation, grade));
+            model.addAttribute("generations", schoolClassService.listGenerations());
+            model.addAttribute("grades", schoolClassService.listGrades());
+            model.addAttribute("selectedGeneration", generation);
+            model.addAttribute("selectedGrade", grade);
             return "pages/classes";
         } catch (Exception ex) {
             ra.addFlashAttribute("error", "Unable to load classes");
@@ -389,12 +491,16 @@ public class AdminViewController {
     public String createClass(
             @RequestParam String name,
             @RequestParam(required = false) String grade,
+            @RequestParam Integer generation,
+            @RequestParam(required = false) Integer academicYear,
             @RequestParam UUID schoolUuid,
             RedirectAttributes ra) {
         try {
             SchoolClassRequest request = new SchoolClassRequest();
             request.setName(name);
             request.setGrade(blankToNull(grade));
+            request.setGeneration(generation);
+            request.setAcademicYear(academicYear);
             request.setSchoolUuid(schoolUuid);
             schoolClassService.create(request);
             ra.addFlashAttribute("success", "Class created");
@@ -411,12 +517,16 @@ public class AdminViewController {
             @PathVariable UUID id,
             @RequestParam String name,
             @RequestParam(required = false) String grade,
+            @RequestParam Integer generation,
+            @RequestParam(required = false) Integer academicYear,
             @RequestParam UUID schoolUuid,
             RedirectAttributes ra) {
         try {
             SchoolClassRequest request = new SchoolClassRequest();
             request.setName(name);
             request.setGrade(blankToNull(grade));
+            request.setGeneration(generation);
+            request.setAcademicYear(academicYear);
             request.setSchoolUuid(schoolUuid);
             schoolClassService.update(id, request);
             ra.addFlashAttribute("success", "Class updated");
@@ -437,6 +547,187 @@ public class AdminViewController {
             ra.addFlashAttribute("error", ex.getMessage());
         }
         return "redirect:/admin/classes";
+    }
+
+    // ── Scores ───────────────────────────────────────────────────────────────
+
+    @GetMapping("/scores")
+    @PreAuthorize("hasAuthority('SCORE_READ')")
+    public String scores(
+            @RequestParam(required = false) UUID classUuid,
+            @RequestParam(required = false) Integer generation,
+            Authentication authentication,
+            Model model,
+            RedirectAttributes ra) {
+        try {
+            fillCommon(model, authentication, "scores", "Scores");
+            model.addAttribute("scores", scoreService.list(classUuid, generation));
+            model.addAttribute("classes", generation == null
+                    ? schoolClassService.getAll()
+                    : schoolClassService.getByGeneration(generation));
+            model.addAttribute("generations", schoolClassService.listGenerations());
+            model.addAttribute("selectedClassUuid", classUuid);
+            model.addAttribute("selectedGeneration", generation);
+            return "pages/scores";
+        } catch (Exception ex) {
+            ra.addFlashAttribute("error", "Unable to load scores");
+            return "redirect:/admin/dashboard";
+        }
+    }
+
+    @GetMapping("/scores/new")
+    @PreAuthorize("hasAuthority('SCORE_WRITE')")
+    public String scoreCreateForm(Authentication authentication, Model model) {
+        fillCommon(model, authentication, "scores", "Add Score");
+        fillScoreFormOptions(model);
+        model.addAttribute("mode", "create");
+        return "pages/score-form";
+    }
+
+    @GetMapping("/scores/import")
+    @PreAuthorize("hasAuthority('SCORE_WRITE')")
+    public String scoreImportForm(Authentication authentication, Model model) {
+        fillCommon(model, authentication, "scores", "Import Scores");
+        model.addAttribute("classes", schoolClassService.getAll());
+        return "pages/score-import";
+    }
+
+    @GetMapping("/scores/export")
+    @PreAuthorize("hasAuthority('SCORE_READ')")
+    public ResponseEntity<byte[]> exportScores(
+            @RequestParam(required = false) UUID classUuid,
+            @RequestParam(required = false) Integer generation) {
+        byte[] bytes = scoreService.exportExcel(classUuid, generation);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=scores.xlsx")
+                .contentType(MediaType.parseMediaType(
+                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                .body(bytes);
+    }
+
+    @GetMapping("/scores/{id}")
+    @PreAuthorize("hasAuthority('SCORE_READ')")
+    public String scoreView(@PathVariable UUID id, Authentication authentication, Model model, RedirectAttributes ra) {
+        try {
+            fillCommon(model, authentication, "scores", "Score");
+            model.addAttribute("item", scoreService.getById(id));
+            return "pages/score-detail";
+        } catch (Exception ex) {
+            ra.addFlashAttribute("error", ex.getMessage());
+            return "redirect:/admin/scores";
+        }
+    }
+
+    @GetMapping("/scores/{id}/edit")
+    @PreAuthorize("hasAuthority('SCORE_WRITE')")
+    public String scoreEditForm(@PathVariable UUID id, Authentication authentication, Model model, RedirectAttributes ra) {
+        try {
+            fillCommon(model, authentication, "scores", "Edit Score");
+            fillScoreFormOptions(model);
+            model.addAttribute("item", scoreService.getById(id));
+            model.addAttribute("mode", "edit");
+            return "pages/score-form";
+        } catch (Exception ex) {
+            ra.addFlashAttribute("error", ex.getMessage());
+            return "redirect:/admin/scores";
+        }
+    }
+
+    @PostMapping("/scores")
+    @PreAuthorize("hasAuthority('SCORE_WRITE')")
+    public String createScore(
+            @RequestParam UUID studentUuid,
+            @RequestParam UUID classUuid,
+            @RequestParam String subject,
+            @RequestParam(required = false) String term,
+            @RequestParam BigDecimal score,
+            @RequestParam(required = false) BigDecimal maxScore,
+            @RequestParam(required = false) String remark,
+            RedirectAttributes ra) {
+        try {
+            scoreService.create(buildScoreRequest(studentUuid, classUuid, subject, term, score, maxScore, remark));
+            ra.addFlashAttribute("success", "Score created");
+            return "redirect:/admin/scores?classUuid=" + classUuid;
+        } catch (RuntimeException ex) {
+            ra.addFlashAttribute("error", ex.getMessage());
+            return "redirect:/admin/scores/new";
+        }
+    }
+
+    @PostMapping("/scores/{id}/update")
+    @PreAuthorize("hasAuthority('SCORE_WRITE')")
+    public String updateScore(
+            @PathVariable UUID id,
+            @RequestParam UUID studentUuid,
+            @RequestParam UUID classUuid,
+            @RequestParam String subject,
+            @RequestParam(required = false) String term,
+            @RequestParam BigDecimal score,
+            @RequestParam(required = false) BigDecimal maxScore,
+            @RequestParam(required = false) String remark,
+            RedirectAttributes ra) {
+        try {
+            scoreService.update(id, buildScoreRequest(studentUuid, classUuid, subject, term, score, maxScore, remark));
+            ra.addFlashAttribute("success", "Score updated");
+            return "redirect:/admin/scores/" + id;
+        } catch (RuntimeException ex) {
+            ra.addFlashAttribute("error", ex.getMessage());
+            return "redirect:/admin/scores/" + id + "/edit";
+        }
+    }
+
+    @PostMapping("/scores/{id}/delete")
+    @PreAuthorize("hasAuthority('SCORE_WRITE')")
+    public String deleteScore(@PathVariable UUID id, RedirectAttributes ra) {
+        try {
+            scoreService.delete(id);
+            ra.addFlashAttribute("success", "Score deleted");
+        } catch (RuntimeException ex) {
+            ra.addFlashAttribute("error", ex.getMessage());
+        }
+        return "redirect:/admin/scores";
+    }
+
+    @PostMapping(path = "/scores/import", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasAuthority('SCORE_WRITE')")
+    public String importScores(
+            @RequestParam UUID classUuid,
+            @RequestParam MultipartFile file,
+            RedirectAttributes ra) {
+        try {
+            int count = scoreService.importExcel(file, classUuid);
+            ra.addFlashAttribute("success", "Imported " + count + " score row(s)");
+            return "redirect:/admin/scores?classUuid=" + classUuid;
+        } catch (RuntimeException ex) {
+            ra.addFlashAttribute("error", ex.getMessage());
+            return "redirect:/admin/scores/import";
+        }
+    }
+
+    private void fillScoreFormOptions(Model model) {
+        model.addAttribute("classes", schoolClassService.getAll());
+        model.addAttribute("students", userService.getAll().stream()
+                .filter(u -> u.getRole() == RoleName.STUDENT)
+                .toList());
+    }
+
+    private static ScoreRequest buildScoreRequest(
+            UUID studentUuid,
+            UUID classUuid,
+            String subject,
+            String term,
+            BigDecimal score,
+            BigDecimal maxScore,
+            String remark) {
+        ScoreRequest request = new ScoreRequest();
+        request.setStudentUuid(studentUuid);
+        request.setClassUuid(classUuid);
+        request.setSubject(subject);
+        request.setTerm(term);
+        request.setScore(score);
+        request.setMaxScore(maxScore);
+        request.setRemark(remark);
+        return request;
     }
 
     // ── Roles ────────────────────────────────────────────────────────────────
@@ -550,8 +841,6 @@ public class AdminViewController {
         try {
             fillCommon(model, authentication, "permissions", "Permissions");
             model.addAttribute("permissions", permissionService.getAll());
-            model.addAttribute("roles", roleService.getAll());
-            model.addAttribute("allPermissionCodes", Arrays.stream(Permission.values()).map(Enum::name).toList());
             return "pages/permissions";
         } catch (Exception ex) {
             ra.addFlashAttribute("error", "Unable to load permissions");
@@ -559,37 +848,84 @@ public class AdminViewController {
         }
     }
 
+    @GetMapping("/permissions/assign")
+    @PreAuthorize("hasAuthority('ROLES_WRITE')")
+    public String permissionAssignForm(
+            @RequestParam(required = false) UUID roleUuid,
+            Authentication authentication,
+            Model model) {
+        fillCommon(model, authentication, "permissions", "Assign Permission");
+        fillPermissionFormOptions(model, roleUuid);
+        return "pages/permission-assign";
+    }
+
+    @GetMapping("/permissions/revoke")
+    @PreAuthorize("hasAuthority('ROLES_WRITE')")
+    public String permissionRevokeForm(
+            @RequestParam(required = false) UUID roleUuid,
+            Authentication authentication,
+            Model model) {
+        fillCommon(model, authentication, "permissions", "Revoke Permission");
+        fillPermissionFormOptions(model, roleUuid);
+        return "pages/permission-revoke";
+    }
+
+    @GetMapping("/permissions/replace")
+    @PreAuthorize("hasAuthority('ROLES_WRITE')")
+    public String permissionReplaceForm(
+            @RequestParam(required = false) UUID roleUuid,
+            Authentication authentication,
+            Model model) {
+        fillCommon(model, authentication, "permissions", "Replace Permissions");
+        fillPermissionFormOptions(model, roleUuid);
+        return "pages/permission-replace";
+    }
+
     @PostMapping("/permissions/assign")
     @PreAuthorize("hasAuthority('ROLES_WRITE')")
     public String assignPermission(
             @RequestParam UUID roleUuid,
-            @RequestParam String permission,
+            @RequestParam(required = false) List<String> permissions,
             RedirectAttributes ra) {
         try {
-            PermissionAssignRequest request = new PermissionAssignRequest();
-            request.setRoleUuid(roleUuid);
-            request.setPermission(permission);
-            permissionService.assign(request);
-            ra.addFlashAttribute("success", "Permission assigned");
+            if (permissions == null || permissions.isEmpty()) {
+                throw new ErrorRuntime("Select at least one permission");
+            }
+            int count = 0;
+            for (String permission : permissions) {
+                PermissionAssignRequest request = new PermissionAssignRequest();
+                request.setRoleUuid(roleUuid);
+                request.setPermission(permission);
+                permissionService.assign(request);
+                count++;
+            }
+            ra.addFlashAttribute("success", "Assigned " + count + " permission(s)");
+            return "redirect:/admin/permissions";
         } catch (RuntimeException ex) {
             ra.addFlashAttribute("error", ex.getMessage());
+            return "redirect:/admin/permissions/assign?roleUuid=" + roleUuid;
         }
-        return "redirect:/admin/permissions";
     }
 
     @PostMapping("/permissions/revoke")
     @PreAuthorize("hasAuthority('ROLES_WRITE')")
     public String revokePermission(
             @RequestParam UUID roleUuid,
-            @RequestParam String permission,
+            @RequestParam(required = false) List<String> permissions,
             RedirectAttributes ra) {
         try {
-            permissionService.revoke(roleUuid, permission);
-            ra.addFlashAttribute("success", "Permission revoked");
+            if (permissions == null || permissions.isEmpty()) {
+                throw new ErrorRuntime("Select at least one permission to revoke");
+            }
+            for (String permission : permissions) {
+                permissionService.revoke(roleUuid, permission);
+            }
+            ra.addFlashAttribute("success", "Revoked " + permissions.size() + " permission(s)");
+            return "redirect:/admin/permissions";
         } catch (RuntimeException ex) {
             ra.addFlashAttribute("error", ex.getMessage());
+            return "redirect:/admin/permissions/revoke?roleUuid=" + roleUuid;
         }
-        return "redirect:/admin/permissions";
     }
 
     @PostMapping("/permissions/replace")
@@ -607,10 +943,30 @@ public class AdminViewController {
             }
             permissionService.replaceRolePermissions(request);
             ra.addFlashAttribute("success", "Role permissions updated");
+            return "redirect:/admin/permissions";
         } catch (RuntimeException ex) {
             ra.addFlashAttribute("error", ex.getMessage());
+            return "redirect:/admin/permissions/replace?roleUuid=" + roleUuid;
         }
-        return "redirect:/admin/permissions";
+    }
+
+    private void fillPermissionFormOptions(Model model, UUID roleUuid) {
+        model.addAttribute("roles", roleService.getAll());
+        model.addAttribute("allPermissionCodes", Arrays.stream(Permission.values()).map(Enum::name).toList());
+        model.addAttribute("selectedRoleUuid", roleUuid);
+        if (roleUuid != null) {
+            model.addAttribute("currentPermissions",
+                    new java.util.LinkedHashSet<>(permissionService.getPermissionsForRole(roleUuid)));
+        } else {
+            model.addAttribute("currentPermissions", java.util.Set.of());
+        }
+    }
+
+    private void fillUserFormOptions(Model model) {
+        model.addAttribute("roles", roleService.getAll());
+        model.addAttribute("schools", schoolService.getAll());
+        model.addAttribute("classes", schoolClassService.getAll());
+        model.addAttribute("grades", schoolClassService.listGrades());
     }
 
     private void fillCommon(Model model, Authentication authentication, String activePage, String pageTitle) {
@@ -628,7 +984,7 @@ public class AdminViewController {
 
     private static SchoolRequest buildSchoolRequest(
             String name, String description, String address, String phone,
-            String email, String website, String logo, String banner) {
+            String email, String website) {
         SchoolRequest request = new SchoolRequest();
         request.setName(name);
         request.setDescription(description);
@@ -636,8 +992,6 @@ public class AdminViewController {
         request.setPhone(phone);
         request.setEmail(email);
         request.setWebsite(website);
-        request.setLogo(blankTo(logo, "/logo.png"));
-        request.setBanner(blankTo(banner, "/banner.png"));
         return request;
     }
 

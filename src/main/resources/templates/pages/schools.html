@@ -5,13 +5,20 @@
 <body>
 <section th:fragment="section">
     <div class="page-toolbar">
-        <div>
-            <h2 class="page-heading">Schools</h2>
-            <p class="muted">Manage schools on the platform</p>
-        </div>
-        <div class="page-toolbar-actions">
-            <a class="btn btn-dark" sec:authorize="hasAuthority('SCHOOL_WRITE')" th:href="@{/admin/schools/new}">Add School</a>
-            <input type="search" class="search-input" placeholder="Search name or email..." data-table-search="schools-table">
+        <div class="page-toolbar-main">
+            <div>
+                <h2 class="page-heading">Schools</h2>
+                <p class="muted">Manage schools on the platform</p>
+            </div>
+            <div class="page-toolbar-actions">
+                <div class="page-toolbar-left">
+                    <input type="search" class="search-input" placeholder="Search name or email..."
+                           data-table-search="schools-table" aria-label="Search schools">
+                </div>
+                <div class="page-toolbar-right">
+                    <a class="btn btn-dark" sec:authorize="hasAuthority('SCHOOL_WRITE')" th:href="@{/admin/schools/new}">Add School</a>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -32,7 +39,15 @@
             <tr th:each="school : ${schools}"
                 th:attr="data-search=${school.name + ' ' + school.email + ' ' + school.uuid}">
                 <td><code class="id-chip" th:title="${school.uuid}" th:text="${#strings.substring(school.uuid.toString(),0,8)}">id</code></td>
-                <td><span class="avatar-circle" th:text="${#strings.substring(school.name,0,1)}">S</span></td>
+                <td>
+                    <img th:if="${school.hasLogo}"
+                         class="avatar-photo"
+                         th:src="${school.logoUrl}"
+                         th:alt="${school.name}">
+                    <span th:unless="${school.hasLogo}"
+                          class="avatar-circle"
+                          th:text="${#strings.substring(school.name,0,1)}">S</span>
+                </td>
                 <td th:text="${school.name}">Name</td>
                 <td th:text="${school.email}">email</td>
                 <td th:text="${school.phone}">phone</td>

@@ -63,6 +63,11 @@ public class DataSeeder implements CommandLineRunner {
         seedUser("Super Admin", superAdminEmail, superAdminPassword, RoleName.SUPERADMIN, school);
         seedUser("System Admin", adminEmail, adminPassword, RoleName.ADMIN, school);
         permissionService.seedDefaultsIfEmpty();
+        // Attendance write: Admin/Superadmin manage; Teacher marks classes — not Principal/Staff
+        roleRepository.findByName(RoleName.PRINCIPAL).ifPresent(role ->
+                permissionService.revoke(role.getUuid(), "ATTENDANCE_WRITE"));
+        roleRepository.findByName(RoleName.STAFF).ifPresent(role ->
+                permissionService.revoke(role.getUuid(), "ATTENDANCE_WRITE"));
     }
 
     private void seedRoles() {
@@ -88,9 +93,7 @@ public class DataSeeder implements CommandLineRunner {
                         "123 Education St",
                         "000-000-0000",
                         "info@demoschool.com",
-                        "https://demoschool.com",
-                        "/logo.png",
-                        "/banner.png")));
+                        "https://demoschool.com")));
     }
 
     private void seedUser(String name, String email, String password, RoleName roleName, SchoolMag school) {

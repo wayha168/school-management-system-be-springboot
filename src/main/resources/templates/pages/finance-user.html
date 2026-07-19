@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{layout :: layout(~{::section})}">
+<body>
+<section th:fragment="section">
+    <div class="page-toolbar">
+        <div class="page-toolbar-main">
+            <h2 class="page-heading">User finance</h2>
+            <p class="muted" th:text="${finance.userName}">User</p>
+            <div class="page-toolbar-actions row">
+                <a class="btn btn-ghost" th:href="@{/admin/finance}">Back</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="view-switch-row">
+        <div class="view-switch" data-view-switch data-view-default="payroll" role="tablist" aria-label="Finance tables">
+            <button type="button" class="view-switch-btn is-active" data-view-target="payroll">Payroll</button>
+            <button type="button" class="view-switch-btn" data-view-target="payments">Payments</button>
+        </div>
+    </div>
+
+    <div class="view-panel" data-view-panel="payroll">
+        <div class="table-wrap">
+            <table class="data-table">
+                <thead><tr><th>Period</th><th>Amount</th><th>Status</th><th>Note</th></tr></thead>
+                <tbody>
+                <tr th:each="item : ${payroll}">
+                    <td th:text="${item.period}">2026-01</td>
+                    <td th:text="${item.amount}">0</td>
+                    <td th:text="${item.status}">DRAFT</td>
+                    <td th:text="${item.note} ?: '—'">—</td>
+                </tr>
+                <tr th:if="${#lists.isEmpty(payroll)}"><td colspan="4">None</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="view-panel" data-view-panel="payments" hidden>
+        <div class="table-wrap">
+            <table class="data-table">
+                <thead><tr><th>Type</th><th>Amount</th><th>Due</th><th>Status</th></tr></thead>
+                <tbody>
+                <tr th:each="item : ${payments}">
+                    <td th:text="${item.paymentType}">TUITION</td>
+                    <td th:text="${item.amount}">0</td>
+                    <td th:text="${item.dueDate} ?: '—'">—</td>
+                    <td th:text="${item.status}">PENDING</td>
+                </tr>
+                <tr th:if="${#lists.isEmpty(payments)}"><td colspan="4">None</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</section>
+</body>
+</html>

@@ -6,22 +6,95 @@
     <div class="page-toolbar">
         <div>
             <h2 class="page-heading" th:text="${mode == 'edit'} ? 'Edit School' : 'Add School'">Add School</h2>
-            <p class="muted">School profile details</p>
+            <p class="muted">School profile details and brand images</p>
         </div>
         <a class="btn btn-ghost" th:href="@{/admin/schools}">Back</a>
     </div>
-    <article class="form-card">
+    <article class="form-card form-card-wide">
         <form th:action="${mode == 'edit'} ? @{/admin/schools/{id}/update(id=${school.uuid})} : @{/admin/schools}"
-              method="post" class="stack-form">
-            <label>Name <input name="name" required th:value="${school != null} ? ${school.name} : ''"></label>
-            <label>Description <input name="description" required th:value="${school != null} ? ${school.description} : ''"></label>
-            <label>Address <input name="address" required th:value="${school != null} ? ${school.address} : ''"></label>
-            <label>Phone <input name="phone" required th:value="${school != null} ? ${school.phone} : ''"></label>
-            <label>Email <input type="email" name="email" required th:value="${school != null} ? ${school.email} : ''"></label>
-            <label>Website <input name="website" required th:value="${school != null} ? ${school.website} : 'https://'"></label>
-            <label>Logo URL <input name="logo" th:value="${school != null} ? ${school.logo} : '/logo.png'"></label>
-            <label>Banner URL <input name="banner" th:value="${school != null} ? ${school.banner} : '/banner.png'"></label>
-            <div class="modal-actions">
+              method="post"
+              enctype="multipart/form-data"
+              class="form-grid"
+              data-image-upload-form>
+            <label>Name
+                <input name="name" required th:value="${school != null} ? ${school.name} : ''">
+            </label>
+            <label>Phone
+                <input name="phone" required th:value="${school != null} ? ${school.phone} : ''">
+            </label>
+            <label>Email
+                <input type="email" name="email" required th:value="${school != null} ? ${school.email} : ''">
+            </label>
+
+            <label class="span-2">Description
+                <input name="description" required th:value="${school != null} ? ${school.description} : ''">
+            </label>
+            <label>Website
+                <input name="website" required th:value="${school != null} ? ${school.website} : 'https://'">
+            </label>
+
+            <label class="span-3">Address
+                <input name="address" required th:value="${school != null} ? ${school.address} : ''">
+            </label>
+
+            <div class="upload-grid span-3">
+                <div class="upload-tile upload-tile-logo"
+                     data-upload-tile>
+                    <input type="file"
+                           name="logo"
+                           accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml"
+                           hidden
+                           data-upload-input>
+                    <button type="button"
+                            class="upload-preview upload-preview-logo"
+                            data-upload-preview
+                            data-upload-trigger
+                            th:classappend="${school != null and school.hasLogo} ? ' has-image' : ' has-default'"
+                            th:style="${school != null and school.hasLogo} ? 'background-image:url(' + school.logoUrl + ')' : null"
+                            aria-label="Upload logo">
+                        <img class="upload-default-img"
+                             data-upload-default
+                             th:if="${school == null or !school.hasLogo}"
+                             th:src="@{/assets/Emblem_of_the_Ministry_of_Education,_Youth_and_Sport_(Cambodia).svg}"
+                             alt="MoEYS emblem">
+                        <span class="upload-change">Change</span>
+                    </button>
+                    <div class="upload-meta">
+                        <strong>Logo</strong>
+                        <span data-upload-filename
+                              th:text="${school != null and school.hasLogo} ? 'Custom logo' : 'MoEYS emblem default'">MoEYS emblem default</span>
+                    </div>
+                </div>
+
+                <div class="upload-tile upload-tile-banner"
+                     data-upload-tile>
+                    <input type="file"
+                           name="banner"
+                           accept="image/png,image/jpeg,image/webp,image/gif"
+                           hidden
+                           data-upload-input>
+                    <button type="button"
+                            class="upload-preview upload-preview-banner"
+                            data-upload-preview
+                            data-upload-trigger
+                            th:classappend="${school != null and school.hasBanner} ? ' has-image' : ''"
+                            th:style="${school != null and school.hasBanner} ? 'background-image:url(' + school.bannerUrl + ')' : null"
+                            aria-label="Upload banner">
+                        <span class="upload-placeholder" data-upload-placeholder th:if="${school == null or !school.hasBanner}">
+                            <strong>Banner</strong>
+                            <span>Click to upload</span>
+                        </span>
+                        <span class="upload-change">Change</span>
+                    </button>
+                    <div class="upload-meta">
+                        <strong>Banner</strong>
+                        <span data-upload-filename
+                              th:text="${school != null and school.hasBanner} ? 'Current banner' : 'Optional · max 5MB'">Optional · max 5MB</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-actions span-3">
                 <a class="btn btn-ghost" th:href="@{/admin/schools}">Cancel</a>
                 <button type="submit" class="btn btn-dark" th:text="${mode == 'edit'} ? 'Save' : 'Create'">Create</button>
             </div>

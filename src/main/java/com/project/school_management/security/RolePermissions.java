@@ -40,7 +40,15 @@ public final class RolePermissions {
                     Permission.STAFF_READ,
                     Permission.STAFF_WRITE,
                     Permission.STAFF_EDIT,
-                    Permission.STAFF_DELETE);
+                    Permission.STAFF_DELETE,
+                    Permission.SCORE_READ,
+                    Permission.SCORE_WRITE,
+                    Permission.FINANCE_READ,
+                    Permission.FINANCE_WRITE,
+                    Permission.REQUEST_READ,
+                    Permission.REQUEST_WRITE,
+                    Permission.ATTENDANCE_READ,
+                    Permission.ATTENDANCE_WRITE);
             case PRINCIPAL -> EnumSet.of(
                     Permission.SCHOOL_READ,
                     Permission.USER_READ,
@@ -53,21 +61,40 @@ public final class RolePermissions {
                     Permission.STUDENT_READ,
                     Permission.STUDENT_WRITE,
                     Permission.TEACHER_READ,
-                    Permission.STAFF_READ);
+                    Permission.STAFF_READ,
+                    Permission.SCORE_READ,
+                    Permission.SCORE_WRITE,
+                    Permission.FINANCE_READ,
+                    Permission.REQUEST_READ,
+                    Permission.REQUEST_WRITE,
+                    Permission.ATTENDANCE_READ);
             case TEACHER -> EnumSet.of(
                     Permission.SCHOOL_READ,
                     Permission.USER_READ,
                     Permission.CLASS_READ,
-                    Permission.STUDENT_READ);
+                    Permission.STUDENT_READ,
+                    Permission.SCORE_READ,
+                    Permission.SCORE_WRITE,
+                    Permission.REQUEST_READ,
+                    Permission.ATTENDANCE_READ,
+                    Permission.ATTENDANCE_WRITE);
             case STAFF -> EnumSet.of(
                     Permission.SCHOOL_READ,
                     Permission.USER_READ,
                     Permission.CLASS_READ,
                     Permission.ROLES_READ,
-                    Permission.STAFF_READ);
+                    Permission.STAFF_READ,
+                    Permission.FINANCE_READ,
+                    Permission.FINANCE_WRITE,
+                    Permission.REQUEST_READ,
+                    Permission.REQUEST_WRITE,
+                    Permission.ATTENDANCE_READ);
             case STUDENT -> EnumSet.of(
                     Permission.SCHOOL_READ,
-                    Permission.CLASS_READ);
+                    Permission.CLASS_READ,
+                    Permission.SCORE_READ,
+                    Permission.REQUEST_READ,
+                    Permission.ATTENDANCE_READ);
         };
     }
 }

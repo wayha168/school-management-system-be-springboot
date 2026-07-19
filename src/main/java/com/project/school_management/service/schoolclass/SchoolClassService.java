@@ -16,6 +16,16 @@ public interface SchoolClassService {
 
     List<SchoolClassResponse> getBySchool(UUID schoolUuid);
 
+    List<SchoolClassResponse> getByGeneration(Integer generation);
+
+    List<SchoolClassResponse> getByGrade(String grade);
+
+    List<SchoolClassResponse> filter(Integer generation, String grade);
+
+    List<Integer> listGenerations();
+
+    List<String> listGrades();
+
     SchoolClassResponse update(UUID id, SchoolClassRequest request);
 
     void delete(UUID id);

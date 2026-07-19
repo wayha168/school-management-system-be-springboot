@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{layout :: layout(~{::section})}">
+<body>
+<section th:fragment="section">
+    <div class="page-toolbar">
+        <div class="page-toolbar-main">
+            <h2 class="page-heading">Add payroll</h2>
+            <p class="muted">Staff / teacher payroll entry</p>
+            <div class="page-toolbar-actions row">
+                <a class="btn btn-ghost" th:href="@{/admin/finance}">Back</a>
+            </div>
+        </div>
+    </div>
+    <article class="form-card form-card-wide">
+        <form th:action="@{/admin/finance/payroll}" method="post" class="form-grid">
+            <label>User
+                <select name="userUuid" required>
+                    <option value="" disabled selected>Select user</option>
+                    <option th:each="u : ${users}" th:value="${u.uuid}"
+                            th:text="${u.name + ' · ' + u.role}">User</option>
+                </select>
+            </label>
+            <label>Period (YYYY-MM)
+                <input name="period" required pattern="\\d{4}-\\d{2}" placeholder="2026-01">
+            </label>
+            <label>Amount
+                <input type="number" name="amount" required min="0" step="0.01">
+            </label>
+            <label>Status
+                <select name="status">
+                    <option th:each="st : ${statuses}" th:value="${st}" th:text="${st}">DRAFT</option>
+                </select>
+            </label>
+            <label class="span-3">Note
+                <input name="note" placeholder="Optional">
+            </label>
+            <div class="modal-actions span-3">
+                <button type="submit" class="btn btn-dark">Create</button>
+            </div>
+        </form>
+    </article>
+</section>
+</body>
+</html>

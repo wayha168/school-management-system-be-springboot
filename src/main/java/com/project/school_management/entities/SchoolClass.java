@@ -12,8 +12,8 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToMany;
 import jakarta.persistence.ManyToOne;
-import jakarta.persistence.OneToMany;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
@@ -39,11 +39,19 @@ public class SchoolClass {
     @Column(name = "grade")
     private String grade;
 
+    /** Generation id / cohort number (e.g. 9 → G9, 9th generation). */
+    @Column(name = "generation", nullable = false)
+    private Integer generation;
+
+    /** Academic year for this generation (e.g. 2025). */
+    @Column(name = "academic_year")
+    private Integer academicYear;
+
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "school_uuid", nullable = false)
     private SchoolMag school;
 
-    @OneToMany(mappedBy = "schoolClass")
+    @ManyToMany(mappedBy = "schoolClasses")
     private List<User> users = new ArrayList<>();
 
     @Column(name = "created_at", nullable = false)
@@ -52,9 +60,11 @@ public class SchoolClass {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
-    public SchoolClass(String name, String grade) {
+    public SchoolClass(String name, String grade, Integer generation, Integer academicYear) {
         this.name = name;
         this.grade = grade;
+        this.generation = generation;
+        this.academicYear = academicYear;
     }
 
     @PrePersist

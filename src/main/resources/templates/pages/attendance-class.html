@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security"
+      th:replace="~{layout :: layout(~{::section})}">
+<body>
+<section th:fragment="section">
+    <div class="page-toolbar">
+        <div class="page-toolbar-main">
+            <div>
+                <h2 class="page-heading" th:text="${schoolClass.name}">Class</h2>
+                <p class="muted"
+                   th:text="${(schoolClass.grade ?: '—') + ' · ' + (schoolClass.generationCode ?: '—') + ' · ' + (schoolClass.schoolName ?: '')}">
+                    Grade · Generation
+                </p>
+            </div>
+            <div class="page-toolbar-actions row">
+                <a class="btn btn-ghost" th:href="@{/admin/attendance(tab='classes')}">Back</a>
+                <a class="btn btn-dark" th:if="${canMark}"
+                   sec:authorize="hasAuthority('ATTENDANCE_WRITE')"
+                   th:href="@{/admin/attendance/mark(classUuid=${schoolClass.uuid}, date=${selectedDate})}">Mark attendance</a>
+            </div>
+        </div>
+    </div>
+
+    <p class="muted" style="margin-bottom:12px">
+        Belongs to:
+        <th:block th:if="${!#lists.isEmpty(teachers)}">
+            <strong th:each="t, iter : ${teachers}">
+                <span th:text="${t.name}">Teacher</span><span th:unless="${iter.last}">, </span>
+            </strong>
+        </th:block>
+        <strong th:if="${#lists.isEmpty(teachers)}">Unassigned</strong>
+    </p>
+
+    <form class="filter-bar" method="get"
+          th:action="@{/admin/attendance/classes/{id}(id=${schoolClass.uuid})}"
+          style="margin-bottom:14px">
+        <label>Date
+            <input type="date" name="date" th:value="${selectedDate}" onchange="this.form.submit()">
+        </label>
+    </form>
+
+    <div class="table-wrap">
+        <table class="data-table" id="class-students-table">
+            <thead>
+            <tr>
+                <th>Student</th>
+                <th>Email</th>
+                <th>Status</th>
+                <th>Remark</th>
+                <th th:if="${canMark}" sec:authorize="hasAuthority('ATTENDANCE_WRITE')">Quick set</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr th:each="s : ${students}" th:attr="data-search=${s.name + ' ' + s.email}">
+                <td th:text="${s.name}">Name</td>
+                <td th:text="${s.email}">email</td>
+                <td>
+                    <span class="role-badge"
+                          th:text="${attendanceByUser.containsKey(s.uuid)} ? ${attendanceByUser.get(s.uuid).status} : '—'">PRESENT</span>
+                </td>
+                <td th:text="${attendanceByUser.containsKey(s.uuid) and attendanceByUser.get(s.uuid).remark != null}
+                              ? ${attendanceByUser.get(s.uuid).remark} : '—'">—</td>
+                <td th:if="${canMark}" sec:authorize="hasAuthority('ATTENDANCE_WRITE')">
+                    <form th:action="@{/admin/attendance}" method="post" class="filter-bar">
+                        <input type="hidden" name="userUuid" th:value="${s.uuid}">
+                        <input type="hidden" name="classUuid" th:value="${schoolClass.uuid}">
+                        <input type="hidden" name="attendanceDate" th:value="${selectedDate}">
+                        <select name="status">
+                            <option th:each="st : ${statuses}" th:value="${st}" th:text="${st}"
+                                    th:selected="${attendanceByUser.containsKey(s.uuid)
+                                        ? attendanceByUser.get(s.uuid).status == st
+                                        : st.name() == 'PRESENT'}">PRESENT</option>
+                        </select>
+                        <button type="submit" class="btn btn-ghost btn-sm">Save</button>
+                    </form>
+                </td>
+            </tr>
+            <tr th:if="${#lists.isEmpty(students)}">
+                <td colspan="5">No students in this class.</td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+</section>
+</body>
+</html>

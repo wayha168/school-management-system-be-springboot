@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{layout :: layout(~{::section})}">
+<body>
+<section th:fragment="section">
+    <div class="page-toolbar">
+        <div class="page-toolbar-main">
+            <h2 class="page-heading">Student grades</h2>
+            <p class="muted" th:text="${gpa.studentName + ' · ' + gpa.studentEmail}">Student</p>
+            <div class="page-toolbar-actions row">
+                <a class="btn btn-ghost" th:href="@{/admin/grades}">Back</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="page-toolbar-actions" style="margin-bottom:14px">
+        <form class="filter-bar" method="get" th:action="@{/admin/grades/{id}(id=${gpa.studentUuid})}">
+            <select name="generation" onchange="this.form.submit()">
+                <option value="">All sessions (generation)</option>
+                <option th:each="g : ${generations}" th:value="${g}"
+                        th:selected="${selectedGeneration != null and selectedGeneration == g}"
+                        th:text="${'G' + g}">G9</option>
+            </select>
+            <select name="term" onchange="this.form.submit()">
+                <option value="">All terms</option>
+                <option th:each="t : ${terms}" th:value="${t}"
+                        th:selected="${selectedTerm != null and selectedTerm == t}"
+                        th:text="${t}">Term 1</option>
+            </select>
+            <button type="submit" class="btn btn-ghost">Apply</button>
+        </form>
+    </div>
+
+    <div class="summary-grid" style="margin-bottom:16px">
+        <article class="summary-card">
+            <div><span class="summary-label">GPA</span><p class="summary-value" th:text="${gpa.gpa}">0.00</p></div>
+        </article>
+        <article class="summary-card">
+            <div><span class="summary-label">Average %</span><p class="summary-value" th:text="${gpa.averagePercent}">0</p></div>
+        </article>
+        <article class="summary-card">
+            <div><span class="summary-label">Letter</span><p class="summary-value" th:text="${gpa.letterGrade}">—</p></div>
+        </article>
+        <article class="summary-card">
+            <div><span class="summary-label">Scores</span><p class="summary-value" th:text="${gpa.totalScores}">0</p></div>
+        </article>
+    </div>
+
+    <div class="view-switch-row">
+        <div class="view-switch" data-view-switch data-view-default="subjects" role="tablist" aria-label="Grade tables">
+            <button type="button" class="view-switch-btn is-active" data-view-target="subjects">By subject</button>
+            <button type="button" class="view-switch-btn" data-view-target="scores">Score rows</button>
+        </div>
+    </div>
+
+    <div class="view-panel" data-view-panel="subjects">
+        <div class="table-wrap">
+            <table class="data-table" id="grade-subjects-table">
+                <thead><tr><th>Subject</th><th>Avg %</th><th>GPA pts</th><th>Letter</th><th>Count</th></tr></thead>
+                <tbody>
+                <tr th:each="sub : ${gpa.subjects}"
+                    th:attr="data-search=${sub.subject}">
+                    <td th:text="${sub.subject}">Math</td>
+                    <td th:text="${sub.averagePercent}">80</td>
+                    <td th:text="${sub.gpaPoints}">3.0</td>
+                    <td th:text="${sub.letterGrade}">B</td>
+                    <td th:text="${sub.scoreCount}">1</td>
+                </tr>
+                <tr th:if="${#lists.isEmpty(gpa.subjects)}"><td colspan="5">No subject averages.</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="view-panel" data-view-panel="scores" hidden>
+        <div class="table-wrap">
+            <table class="data-table" id="grade-scores-table">
+                <thead><tr><th>Class</th><th>Subject</th><th>Term</th><th>Score</th><th>Teacher</th></tr></thead>
+                <tbody>
+                <tr th:each="item : ${gpa.scores}"
+                    th:attr="data-search=${item.className + ' ' + item.subject + ' ' + item.term}">
+                    <td th:text="${item.className}">Class</td>
+                    <td th:text="${item.subject}">Math</td>
+                    <td th:text="${item.term} ?: '—'">Term 1</td>
+                    <td th:text="${item.score + ' / ' + item.maxScore}">80 / 100</td>
+                    <td th:text="${item.teacherName}">Teacher</td>
+                </tr>
+                <tr th:if="${#lists.isEmpty(gpa.scores)}"><td colspan="5">No scores.</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</section>
+</body>
+</html>

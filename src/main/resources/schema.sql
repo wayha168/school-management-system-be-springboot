@@ -17,20 +17,37 @@ CREATE TABLE IF NOT EXISTS school_management (
     phone VARCHAR(255) NOT NULL,
     email VARCHAR(255) NOT NULL,
     website VARCHAR(255) NOT NULL,
-    logo VARCHAR(255) NOT NULL,
-    banner VARCHAR(255) NOT NULL,
+    logo_data BYTEA,
+    logo_content_type VARCHAR(100),
+    banner_data BYTEA,
+    banner_content_type VARCHAR(100),
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP
 );
+
+-- Migrate older installs that stored logo/banner as URL strings
+ALTER TABLE school_management ADD COLUMN IF NOT EXISTS logo_data BYTEA;
+ALTER TABLE school_management ADD COLUMN IF NOT EXISTS logo_content_type VARCHAR(100);
+ALTER TABLE school_management ADD COLUMN IF NOT EXISTS banner_data BYTEA;
+ALTER TABLE school_management ADD COLUMN IF NOT EXISTS banner_content_type VARCHAR(100);
+ALTER TABLE school_management ALTER COLUMN logo DROP NOT NULL;
+ALTER TABLE school_management ALTER COLUMN banner DROP NOT NULL;
+ALTER TABLE school_management DROP COLUMN IF EXISTS logo;
+ALTER TABLE school_management DROP COLUMN IF EXISTS banner;
 
 CREATE TABLE IF NOT EXISTS school_classes (
     uuid UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name VARCHAR(255) NOT NULL,
     grade VARCHAR(50),
+    generation INTEGER NOT NULL DEFAULT 1,
+    academic_year INTEGER,
     school_uuid UUID NOT NULL REFERENCES school_management (uuid),
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP
 );
+
+ALTER TABLE school_classes ADD COLUMN IF NOT EXISTS generation INTEGER;
+ALTER TABLE school_classes ADD COLUMN IF NOT EXISTS academic_year INTEGER;
 
 CREATE TABLE IF NOT EXISTS users (
     uuid UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -48,12 +65,79 @@ CREATE TABLE IF NOT EXISTS users (
 
 ALTER TABLE users ADD COLUMN IF NOT EXISTS grade VARCHAR(50);
 ALTER TABLE users ADD COLUMN IF NOT EXISTS room VARCHAR(100);
+ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_image_data BYTEA;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_image_content_type VARCHAR(100);
+
+CREATE TABLE IF NOT EXISTS student_scores (
+    uuid UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    student_uuid UUID NOT NULL REFERENCES users (uuid),
+    school_class_uuid UUID NOT NULL REFERENCES school_classes (uuid),
+    teacher_uuid UUID NOT NULL REFERENCES users (uuid),
+    subject VARCHAR(100) NOT NULL,
+    term VARCHAR(50),
+    score NUMERIC(6, 2) NOT NULL,
+    max_score NUMERIC(6, 2) NOT NULL DEFAULT 100,
+    remark VARCHAR(255),
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP,
+    CONSTRAINT uq_student_class_subject_term UNIQUE (student_uuid, school_class_uuid, subject, term)
+);
 
 CREATE TABLE IF NOT EXISTS role_permissions (
     uuid UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     role_uuid UUID NOT NULL REFERENCES roles (uuid) ON DELETE CASCADE,
     permission VARCHAR(100) NOT NULL,
     CONSTRAINT uq_role_permission UNIQUE (role_uuid, permission)
+);
+
+CREATE TABLE IF NOT EXISTS attendance_records (
+    uuid UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_uuid UUID NOT NULL REFERENCES users (uuid),
+    school_class_uuid UUID REFERENCES school_classes (uuid),
+    attendance_date DATE NOT NULL,
+    status VARCHAR(20) NOT NULL,
+    marked_by_uuid UUID REFERENCES users (uuid),
+    remark VARCHAR(255),
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS user_requests (
+    uuid UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    from_user_uuid UUID NOT NULL REFERENCES users (uuid),
+    subject VARCHAR(200) NOT NULL,
+    body VARCHAR(2000) NOT NULL,
+    category VARCHAR(30) NOT NULL,
+    status VARCHAR(30) NOT NULL,
+    admin_reply VARCHAR(2000),
+    handled_by_uuid UUID REFERENCES users (uuid),
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS payroll_records (
+    uuid UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_uuid UUID NOT NULL REFERENCES users (uuid),
+    period VARCHAR(7) NOT NULL,
+    amount NUMERIC(12, 2) NOT NULL,
+    status VARCHAR(20) NOT NULL,
+    note VARCHAR(255),
+    created_by_uuid UUID REFERENCES users (uuid),
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS payment_records (
+    uuid UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_uuid UUID NOT NULL REFERENCES users (uuid),
+    payment_type VARCHAR(30) NOT NULL,
+    amount NUMERIC(12, 2) NOT NULL,
+    due_date DATE,
+    status VARCHAR(20) NOT NULL,
+    note VARCHAR(255),
+    created_by_uuid UUID REFERENCES users (uuid),
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP
 );
 
 CREATE INDEX IF NOT EXISTS idx_users_school_uuid ON users (school_uuid);

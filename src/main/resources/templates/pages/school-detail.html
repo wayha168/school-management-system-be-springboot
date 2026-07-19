@@ -5,17 +5,27 @@
 <body>
 <section th:fragment="section">
     <div class="page-toolbar">
-        <div>
+        <div class="page-toolbar-main">
             <h2 class="page-heading">School details</h2>
             <p class="muted" th:text="${school.name}">School</p>
-        </div>
-        <div class="page-toolbar-actions row">
-            <a class="btn btn-ghost" th:href="@{/admin/schools}">Back</a>
-            <a class="btn btn-dark" sec:authorize="hasAuthority('SCHOOL_WRITE')"
-               th:href="@{/admin/schools/{id}/edit(id=${school.uuid})}">Edit</a>
+            <div class="page-toolbar-actions row">
+                <a class="btn btn-ghost" th:href="@{/admin/schools}">Back</a>
+                <a class="btn btn-dark" sec:authorize="hasAuthority('SCHOOL_WRITE')"
+                   th:href="@{/admin/schools/{id}/edit(id=${school.uuid})}">Edit</a>
+            </div>
         </div>
     </div>
-    <article class="form-card">
+    <article class="form-card form-card-wide">
+        <div class="media-stack" th:if="${school.hasBanner or school.hasLogo}">
+            <img th:if="${school.hasBanner}"
+                 class="media-banner"
+                 th:src="${school.bannerUrl}"
+                 th:alt="${school.name + ' banner'}">
+            <img th:if="${school.hasLogo}"
+                 class="media-logo"
+                 th:src="${school.logoUrl}"
+                 th:alt="${school.name + ' logo'}">
+        </div>
         <div class="detail-grid">
             <div><span class="label">ID</span><p><code th:text="${school.uuid}">uuid</code></p></div>
             <div><span class="label">Name</span><p th:text="${school.name}">Name</p></div>

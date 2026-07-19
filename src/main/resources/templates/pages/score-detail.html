@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security"
+      th:replace="~{layout :: layout(~{::section})}">
+<body>
+<section th:fragment="section">
+    <div class="page-toolbar">
+        <div class="page-toolbar-main">
+            <h2 class="page-heading">Score details</h2>
+            <p class="muted" th:text="${item.studentName + ' · ' + item.subject}">Student · Subject</p>
+            <div class="page-toolbar-actions row">
+                <a class="btn btn-ghost" th:href="@{/admin/scores}">Back</a>
+                <a class="btn btn-dark" sec:authorize="hasAuthority('SCORE_WRITE')"
+                   th:href="@{/admin/scores/{id}/edit(id=${item.uuid})}">Edit</a>
+            </div>
+        </div>
+    </div>
+    <article class="form-card form-card-wide">
+        <div class="detail-grid">
+            <div><span class="label">ID</span><p><code th:text="${item.uuid}">uuid</code></p></div>
+            <div><span class="label">Student</span><p th:text="${item.studentName}">Student</p></div>
+            <div><span class="label">Class</span><p th:text="${item.className}">Class</p></div>
+            <div><span class="label">Generation</span>
+                <p th:text="${item.generationDisplay} ?: (item.generation != null ? 'G' + item.generation : '—')">G9</p>
+            </div>
+            <div><span class="label">Subject</span><p th:text="${item.subject}">Math</p></div>
+            <div><span class="label">Term</span><p th:text="${item.term} ?: '—'">Term 1</p></div>
+            <div><span class="label">Score</span><p th:text="${item.score + ' / ' + item.maxScore}">80 / 100</p></div>
+            <div><span class="label">Teacher</span><p th:text="${item.teacherName}">Teacher</p></div>
+            <div class="span-2"><span class="label">Remark</span><p th:text="${item.remark} ?: '—'">—</p></div>
+        </div>
+    </article>
+</section>
+</body>
+</html>

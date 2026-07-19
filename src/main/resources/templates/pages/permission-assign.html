@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{layout :: layout(~{::section})}">
+<body>
+<section th:fragment="section">
+    <div class="page-toolbar">
+        <div class="page-toolbar-main">
+            <h2 class="page-heading">Assign permissions</h2>
+            <p class="muted">Tick permissions to add for a role · current ones are pre-selected</p>
+            <div class="page-toolbar-actions row">
+                <a class="btn btn-ghost" th:href="@{/admin/permissions}">Back</a>
+            </div>
+        </div>
+    </div>
+    <article class="form-card form-card-wide">
+        <form th:action="@{/admin/permissions/assign}" method="post" class="stack-form" data-permission-form>
+            <label>Role
+                <select name="roleUuid" required data-role-permission-select>
+                    <option value="" disabled th:selected="${selectedRoleUuid == null}">Select role</option>
+                    <option th:each="role : ${roles}"
+                            th:value="${role.uuid}"
+                            th:text="${role.name}"
+                            th:selected="${selectedRoleUuid != null and selectedRoleUuid == role.uuid}">ADMIN</option>
+                </select>
+            </label>
+            <div class="check-grid" data-permission-checks>
+                <label class="check-item" th:each="code : ${allPermissionCodes}">
+                    <input type="checkbox" name="permissions" th:value="${code}"
+                           th:checked="${currentPermissions != null and currentPermissions.contains(code)}"
+                           th:attr="data-permission-code=${code}">
+                    <span th:text="${code}">SCHOOL_READ</span>
+                </label>
+            </div>
+            <div class="modal-actions">
+                <a class="btn btn-ghost" th:href="@{/admin/permissions}">Cancel</a>
+                <button type="submit" class="btn btn-dark">Assign selected</button>
+            </div>
+        </form>
+    </article>
+</section>
+</body>
+</html>

@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{layout :: layout(~{::section})}">
+<body>
+<section th:fragment="section">
+    <div class="page-toolbar">
+        <div>
+            <h2 class="page-heading" th:text="${mode == 'edit'} ? 'Edit Score' : 'Add Score'">Add Score</h2>
+            <p class="muted">Enter subject score for a student in your class</p>
+        </div>
+        <a class="btn btn-ghost" th:href="@{/admin/scores}">Back</a>
+    </div>
+    <article class="form-card form-card-wide">
+        <form th:action="${mode == 'edit'} ? @{/admin/scores/{id}/update(id=${item.uuid})} : @{/admin/scores}"
+              method="post" class="form-grid">
+            <label>Student
+                <select name="studentUuid" required>
+                    <option value="" disabled th:selected="${item == null}">Select student</option>
+                    <option th:each="s : ${students}"
+                            th:value="${s.uuid}"
+                            th:text="${s.name + ' · ' + s.email}"
+                            th:selected="${item != null and item.studentUuid == s.uuid}">Student</option>
+                </select>
+            </label>
+            <label>Class
+                <select name="classUuid" required>
+                    <option value="" disabled th:selected="${item == null}">Select class</option>
+                    <option th:each="c : ${classes}"
+                            th:value="${c.uuid}"
+                            th:text="${c.name + ' · ' + (c.generationDisplay ?: '')}"
+                            th:selected="${item != null and item.classUuid == c.uuid}">Class</option>
+                </select>
+            </label>
+            <label>Subject
+                <input name="subject" required placeholder="e.g. Math"
+                       th:value="${item != null} ? ${item.subject} : ''">
+            </label>
+            <label>Term
+                <input name="term" placeholder="Term 1"
+                       th:value="${item != null} ? ${item.term} : 'Term 1'">
+            </label>
+            <label>Score
+                <input type="number" name="score" required min="0" step="0.01"
+                       th:value="${item != null} ? ${item.score} : ''">
+            </label>
+            <label>Max score
+                <input type="number" name="maxScore" min="0.01" step="0.01"
+                       th:value="${item != null} ? ${item.maxScore} : 100">
+            </label>
+            <label class="span-3">Remark
+                <input name="remark" placeholder="Optional note"
+                       th:value="${item != null} ? ${item.remark} : ''">
+            </label>
+            <div class="modal-actions span-3">
+                <a class="btn btn-ghost" th:href="@{/admin/scores}">Cancel</a>
+                <button type="submit" class="btn btn-dark" th:text="${mode == 'edit'} ? 'Save' : 'Create'">Create</button>
+            </div>
+        </form>
+    </article>
+</section>
+</body>
+</html>

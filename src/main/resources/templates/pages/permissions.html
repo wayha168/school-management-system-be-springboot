@@ -5,94 +5,29 @@
 <body>
 <section th:fragment="section">
     <div class="page-toolbar">
-        <div>
-            <h2 class="page-heading">Permissions</h2>
-            <p class="muted">Assign and manage role permissions</p>
-        </div>
-        <div class="page-toolbar-actions">
-            <input type="search"
-                   class="search-input"
-                   placeholder="Search permission..."
-                   data-table-search="permissions-table"
-                   aria-label="Search permissions">
-        </div>
-    </div>
-
-    <div class="crud-grid" sec:authorize="hasAuthority('ROLES_WRITE')">
-        <article class="panel-card">
-            <h3>Assign</h3>
-            <p class="muted">Create a role–permission link.</p>
-            <form th:action="@{/admin/permissions/assign}" method="post" class="stack-form">
-                <label>
-                    Role
-                    <select name="roleUuid" required>
-                        <option value="" disabled selected>Select role</option>
-                        <option th:each="role : ${roles}"
-                                th:value="${role.uuid}"
-                                th:text="${role.name}">ADMIN</option>
-                    </select>
-                </label>
-                <label>
-                    Permission
-                    <select name="permission" required>
-                        <option value="" disabled selected>Select permission</option>
-                        <option th:each="code : ${allPermissionCodes}"
-                                th:value="${code}"
-                                th:text="${code}">SCHOOL_READ</option>
-                    </select>
-                </label>
-                <button type="submit" class="btn">Assign</button>
-            </form>
-        </article>
-
-        <article class="panel-card">
-            <h3>Revoke</h3>
-            <p class="muted">Delete one permission from a role.</p>
-            <form th:action="@{/admin/permissions/revoke}" method="post" class="stack-form">
-                <label>
-                    Role
-                    <select name="roleUuid" required>
-                        <option value="" disabled selected>Select role</option>
-                        <option th:each="role : ${roles}"
-                                th:value="${role.uuid}"
-                                th:text="${role.name}">ADMIN</option>
-                    </select>
-                </label>
-                <label>
-                    Permission
-                    <select name="permission" required>
-                        <option value="" disabled selected>Select permission</option>
-                        <option th:each="code : ${allPermissionCodes}"
-                                th:value="${code}"
-                                th:text="${code}">SCHOOL_READ</option>
-                    </select>
-                </label>
-                <button type="submit" class="btn btn-danger-soft">Revoke</button>
-            </form>
-        </article>
-
-        <article class="panel-card panel-wide">
-            <h3>Replace</h3>
-            <p class="muted">Update (overwrite) all permissions for a role.</p>
-            <form th:action="@{/admin/permissions/replace}" method="post" class="stack-form">
-                <label>
-                    Role
-                    <select name="roleUuid" required>
-                        <option value="" disabled selected>Select role</option>
-                        <option th:each="role : ${roles}"
-                                th:value="${role.uuid}"
-                                th:text="${role.name}">ADMIN</option>
-                    </select>
-                </label>
-                <div class="check-grid">
-                    <label class="check-item" th:each="code : ${allPermissionCodes}">
-                        <input type="checkbox" name="permissions" th:value="${code}">
-                        <span th:text="${code}">SCHOOL_READ</span>
-                    </label>
+        <div class="page-toolbar-main">
+            <div>
+                <h2 class="page-heading">Permissions</h2>
+                <p class="muted">View role–permission matrix</p>
+            </div>
+            <div class="page-toolbar-actions">
+                <div class="page-toolbar-left">
+                    <input type="search"
+                           class="search-input"
+                           placeholder="Search permission..."
+                           data-table-search="permissions-table"
+                           aria-label="Search permissions">
                 </div>
-                <button type="submit" class="btn btn-soft">Save permissions</button>
-            </form>
-        </article>
+                <div class="page-toolbar-right">
+                    <a class="btn btn-ghost" sec:authorize="hasAuthority('ROLES_WRITE')"
+                       th:href="@{/admin/permissions/assign}">Assign</a>
+                    <a class="btn btn-ghost" sec:authorize="hasAuthority('ROLES_WRITE')"
+                       th:href="@{/admin/permissions/revoke}">Revoke</a>
+                    <a class="btn btn-dark" sec:authorize="hasAuthority('ROLES_WRITE')"
+                       th:href="@{/admin/permissions/replace}">Replace</a>
+                </div>
+            </div>
+        </div>
     </div>
 
     <div class="table-wrap">

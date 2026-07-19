@@ -5,12 +5,16 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
+
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Lob;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
@@ -49,11 +53,21 @@ public class SchoolMag {
     @Column(name = "website", nullable = false)
     private String website;
 
-    @Column(name = "logo", nullable = false)
-    private String logo;
+    @Lob
+    @JdbcTypeCode(SqlTypes.BINARY)
+    @Column(name = "logo_data")
+    private byte[] logoData;
 
-    @Column(name = "banner", nullable = false)
-    private String banner;
+    @Column(name = "logo_content_type", length = 100)
+    private String logoContentType;
+
+    @Lob
+    @JdbcTypeCode(SqlTypes.BINARY)
+    @Column(name = "banner_data")
+    private byte[] bannerData;
+
+    @Column(name = "banner_content_type", length = 100)
+    private String bannerContentType;
 
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
@@ -73,17 +87,21 @@ public class SchoolMag {
             String address,
             String phone,
             String email,
-            String website,
-            String logo,
-            String banner) {
+            String website) {
         this.name = name;
         this.description = description;
         this.address = address;
         this.phone = phone;
         this.email = email;
         this.website = website;
-        this.logo = logo;
-        this.banner = banner;
+    }
+
+    public boolean hasLogo() {
+        return logoData != null && logoData.length > 0;
+    }
+
+    public boolean hasBanner() {
+        return bannerData != null && bannerData.length > 0;
     }
 
     public void addClass(SchoolClass schoolClass) {

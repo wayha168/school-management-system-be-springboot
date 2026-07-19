@@ -2,27 +2,141 @@
        xmlns:th="http://www.thymeleaf.org"
        xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
     <div class="sidebar-brand">
-        <p class="brand">School Management</p>
-        <span>Admin console</span>
+        <div class="sidebar-logo" aria-hidden="true">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M3 21h18M5 21V7l7-4 7 4v14M9 21v-6h6v6"/>
+            </svg>
+        </div>
+        <div>
+            <p class="brand">School Management</p>
+            <span>Admin console</span>
+        </div>
     </div>
-    <nav class="sidebar-nav">
+
+    <nav class="sidebar-nav" aria-label="Main">
+        <p class="sidebar-label">Overview</p>
         <a th:href="@{/admin/dashboard}"
-           th:classappend="${activePage == 'dashboard'} ? ' active'">Dashboard</a>
+           th:classappend="${activePage == 'dashboard'} ? ' active'">
+            <span class="nav-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/>
+                    <rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/>
+                </svg>
+            </span>
+            <span>Dashboard</span>
+        </a>
+
+        <p class="sidebar-label">Manage</p>
         <a th:href="@{/admin/schools}"
            sec:authorize="hasAuthority('SCHOOL_READ')"
-           th:classappend="${activePage == 'schools'} ? ' active'">Schools</a>
+           th:classappend="${activePage == 'schools'} ? ' active'">
+            <span class="nav-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M3 21h18M5 21V7l7-4 7 4v14M9 21v-6h6v6"/>
+                </svg>
+            </span>
+            <span>Schools</span>
+        </a>
         <a th:href="@{/admin/users}"
            sec:authorize="hasAuthority('USER_READ')"
-           th:classappend="${activePage == 'users'} ? ' active'">Users</a>
+           th:classappend="${activePage == 'users'} ? ' active'">
+            <span class="nav-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>
+                    <path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>
+                </svg>
+            </span>
+            <span>Users</span>
+        </a>
         <a th:href="@{/admin/classes}"
            sec:authorize="hasAuthority('CLASS_READ')"
-           th:classappend="${activePage == 'classes'} ? ' active'">Classes</a>
+           th:classappend="${activePage == 'classes'} ? ' active'">
+            <span class="nav-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
+                </svg>
+            </span>
+            <span>Classes</span>
+        </a>
+        <a th:href="@{/admin/scores}"
+           sec:authorize="hasAuthority('SCORE_READ')"
+           th:classappend="${activePage == 'scores'} ? ' active'">
+            <span class="nav-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+                </svg>
+            </span>
+            <span>Scores</span>
+        </a>
+        <a th:href="@{/admin/grades}"
+           sec:authorize="hasAuthority('SCORE_READ')"
+           th:classappend="${activePage == 'grades'} ? ' active'">
+            <span class="nav-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/>
+                </svg>
+            </span>
+            <span>Grades</span>
+        </a>
+        <a th:href="@{/admin/attendance}"
+           sec:authorize="hasAuthority('ATTENDANCE_READ')"
+           th:classappend="${activePage == 'attendance'} ? ' active'">
+            <span class="nav-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/><path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01"/>
+                </svg>
+            </span>
+            <span>Attendance</span>
+        </a>
+        <a th:href="@{/admin/requests}"
+           th:classappend="${activePage == 'requests'} ? ' active'">
+            <span class="nav-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                </svg>
+            </span>
+            <span>Requests</span>
+        </a>
+        <a th:href="@{/admin/finance}"
+           th:classappend="${activePage == 'finance'} ? ' active'">
+            <span class="nav-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/>
+                </svg>
+            </span>
+            <span>Finance</span>
+        </a>
+
+        <p class="sidebar-label">Access</p>
         <a th:href="@{/admin/roles}"
            sec:authorize="hasAuthority('ROLES_READ')"
-           th:classappend="${activePage == 'roles'} ? ' active'">Roles</a>
+           th:classappend="${activePage == 'roles'} ? ' active'">
+            <span class="nav-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                </svg>
+            </span>
+            <span>Roles</span>
+        </a>
         <a th:href="@{/admin/permissions}"
            sec:authorize="hasAuthority('ROLES_READ')"
-           th:classappend="${activePage == 'permissions'} ? ' active'">Permissions</a>
-        <a th:href="@{/swagger-ui.html}" target="_blank" rel="noopener">API Docs</a>
+           th:classappend="${activePage == 'permissions'} ? ' active'">
+            <span class="nav-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                </svg>
+            </span>
+            <span>Permissions</span>
+        </a>
+
+        <p class="sidebar-label">Developers</p>
+        <a class="nav-external" th:href="@{/swagger-ui.html}" target="_blank" rel="noopener">
+            <span class="nav-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M14 3h7v7"/><path d="M10 14L21 3"/><path d="M21 14v6a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h6"/>
+                </svg>
+            </span>
+            <span>API Docs</span>
+        </a>
     </nav>
 </aside>

@@ -31,4 +31,18 @@ public interface SchoolClassRepository extends JpaRepository<SchoolClass, UUID> 
             WHERE c.school.uuid = :schoolUuid
             """)
     List<SchoolClass> findDetailedBySchoolUuid(@Param("schoolUuid") UUID schoolUuid);
+
+    @Query("""
+            SELECT DISTINCT c FROM SchoolClass c
+            JOIN FETCH c.school
+            WHERE c.generation = :generation
+            """)
+    List<SchoolClass> findDetailedByGeneration(@Param("generation") Integer generation);
+
+    @Query("""
+            SELECT DISTINCT c.generation FROM SchoolClass c
+            WHERE c.generation IS NOT NULL
+            ORDER BY c.generation
+            """)
+    List<Integer> findDistinctGenerations();
 }

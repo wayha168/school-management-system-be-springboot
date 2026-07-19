@@ -5,13 +5,36 @@
 <body>
 <section th:fragment="section">
     <div class="page-toolbar">
-        <div>
-            <h2 class="page-heading">Classes</h2>
-            <p class="muted">Manage school classes</p>
-        </div>
-        <div class="page-toolbar-actions">
-            <a class="btn btn-dark" sec:authorize="hasAuthority('CLASS_WRITE')" th:href="@{/admin/classes/new}">Add Class</a>
-            <input type="search" class="search-input" placeholder="Search name or school..." data-table-search="classes-table">
+        <div class="page-toolbar-main">
+            <div>
+                <h2 class="page-heading">Classes</h2>
+                <p class="muted">Manage school classes</p>
+            </div>
+            <div class="page-toolbar-actions">
+                <div class="page-toolbar-left">
+                    <input type="search" class="search-input" placeholder="Search name or school..."
+                           data-table-search="classes-table" aria-label="Search classes">
+                    <form class="filter-bar" method="get" th:action="@{/admin/classes}">
+                        <select name="grade" onchange="this.form.submit()" aria-label="Filter by grade">
+                            <option value="">All grades</option>
+                            <option th:each="gr : ${grades}"
+                                    th:value="${gr}"
+                                    th:selected="${selectedGrade != null and selectedGrade == gr}"
+                                    th:text="${gr}">Grade 10</option>
+                        </select>
+                        <select name="generation" onchange="this.form.submit()" aria-label="Filter by generation">
+                            <option value="">All generations</option>
+                            <option th:each="g : ${generations}"
+                                    th:value="${g}"
+                                    th:selected="${selectedGeneration != null and selectedGeneration == g}"
+                                    th:text="${'G' + g + ' · ' + g + (g == 1 ? 'st' : (g == 2 ? 'nd' : (g == 3 ? 'rd' : 'th'))) + ' generation'}">G9</option>
+                        </select>
+                    </form>
+                </div>
+                <div class="page-toolbar-right">
+                    <a class="btn btn-dark" sec:authorize="hasAuthority('CLASS_WRITE')" th:href="@{/admin/classes/new}">Add Class</a>
+                </div>
+            </div>
         </div>
     </div>
     <div class="table-wrap">
@@ -22,6 +45,7 @@
                 <th>Photo</th>
                 <th>Name</th>
                 <th>Grade</th>
+                <th>Generation</th>
                 <th>School</th>
                 <th>Status</th>
                 <th>Actions</th>
@@ -29,11 +53,15 @@
             </thead>
             <tbody>
             <tr th:each="item : ${classes}"
-                th:attr="data-search=${item.name + ' ' + item.schoolName + ' ' + item.uuid}">
+                th:attr="data-search=${item.name + ' ' + item.generation + ' ' + item.schoolName + ' ' + item.uuid}">
                 <td><code class="id-chip" th:title="${item.uuid}" th:text="${#strings.substring(item.uuid.toString(),0,8)}">id</code></td>
                 <td><span class="avatar-circle" th:text="${#strings.substring(item.name,0,1)}">C</span></td>
                 <td th:text="${item.name}">Name</td>
                 <td th:text="${item.grade} ?: '—'">Grade</td>
+                <td>
+                    <span class="gen-chip" th:text="${item.generationCode} ?: '—'">G9</span>
+                    <span class="muted" th:text="${item.generationDisplay}">G9 · 9th generation</span>
+                </td>
                 <td th:text="${item.schoolName}">School</td>
                 <td><span class="status-text status-active">Active</span></td>
                 <td>
@@ -54,7 +82,7 @@
                     </div>
                 </td>
             </tr>
-            <tr th:if="${#lists.isEmpty(classes)}"><td colspan="7">No classes yet.</td></tr>
+            <tr th:if="${#lists.isEmpty(classes)}"><td colspan="8">No classes yet.</td></tr>
             </tbody>
         </table>
     </div>

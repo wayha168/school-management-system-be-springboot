@@ -28,7 +28,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 
 @RestController
-@RequestMapping("/api/classes")
+@RequestMapping("/api/v1/classes")
 @Tag(name = "Classes")
 @SecurityRequirement(name = "bearerAuth")
 public class SchoolClassController {

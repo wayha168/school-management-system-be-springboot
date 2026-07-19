@@ -135,12 +135,11 @@ public class PermissionServiceImpl implements PermissionService {
 
     @Override
     public void seedDefaultsIfEmpty() {
-        if (rolePermissionRepository.count() > 0) {
-            return;
-        }
         for (Role role : roleRepository.findAll()) {
             for (Permission permission : RolePermissions.forRole(role.getName())) {
-                rolePermissionRepository.save(new RolePermission(role, permission.name()));
+                if (!rolePermissionRepository.existsByRoleUuidAndPermission(role.getUuid(), permission.name())) {
+                    rolePermissionRepository.save(new RolePermission(role, permission.name()));
+                }
             }
         }
     }

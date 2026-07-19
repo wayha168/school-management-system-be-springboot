@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{layout :: layout(~{::section})}">
+<body>
+<section th:fragment="section">
+    <div class="page-toolbar">
+        <div class="page-toolbar-main">
+            <h2 class="page-heading">Mark attendance</h2>
+            <p class="muted">Teachers: your classes only · Admin/Superadmin: all classes</p>
+            <div class="page-toolbar-actions row">
+                <a class="btn btn-ghost" th:href="@{/admin/attendance}">Back</a>
+            </div>
+        </div>
+    </div>
+
+    <article class="form-card form-card-wide">
+        <form method="get" th:action="@{/admin/attendance/mark}" class="form-grid" style="margin-bottom:16px">
+            <label>Class
+                <select name="classUuid" required onchange="this.form.submit()">
+                    <option value="" disabled th:selected="${selectedClassUuid == null}">Select class</option>
+                    <option th:each="c : ${classes}" th:value="${c.uuid}"
+                            th:selected="${selectedClassUuid != null and selectedClassUuid == c.uuid}"
+                            th:text="${c.name + ' · ' + (c.generationCode ?: '')}">Class</option>
+                </select>
+            </label>
+            <label>Date
+                <input type="date" name="date" th:value="${selectedDate}" onchange="this.form.submit()">
+            </label>
+        </form>
+
+        <form th:if="${selectedClassUuid != null and !#lists.isEmpty(students)}"
+              th:action="@{/admin/attendance/mark}" method="post">
+            <input type="hidden" name="classUuid" th:value="${selectedClassUuid}">
+            <input type="hidden" name="attendanceDate" th:value="${selectedDate}">
+            <div class="table-wrap">
+                <table class="data-table">
+                    <thead><tr><th>Student</th><th>Email</th><th>Status</th></tr></thead>
+                    <tbody>
+                    <tr th:each="s : ${students}">
+                        <td>
+                            <input type="hidden" name="studentUuid" th:value="${s.uuid}">
+                            <span th:text="${s.name}">Name</span>
+                        </td>
+                        <td th:text="${s.email}">email</td>
+                        <td>
+                            <select name="status">
+                                <option th:each="st : ${statuses}" th:value="${st}" th:text="${st}"
+                                        th:selected="${st.name() == 'PRESENT'}">PRESENT</option>
+                            </select>
+                        </td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="modal-actions" style="margin-top:14px">
+                <button type="submit" class="btn btn-dark">Save attendance</button>
+            </div>
+        </form>
+        <p class="muted" th:if="${selectedClassUuid != null and #lists.isEmpty(students)}">No students in this class.</p>
+    </article>
+</section>
+</body>
+</html>

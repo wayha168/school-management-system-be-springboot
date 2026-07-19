@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security"
+      th:replace="~{layout :: layout(~{::section})}">
+<body>
+<section th:fragment="section">
+    <div class="page-toolbar">
+        <div class="page-toolbar-main">
+            <h2 class="page-heading" th:text="${item.subject}">Subject</h2>
+            <p class="muted" th:text="${item.fromUserName + ' · ' + item.category}">User · REQUEST</p>
+            <div class="page-toolbar-actions row">
+                <a class="btn btn-ghost" th:href="@{/admin/requests}">Back</a>
+                <a class="btn btn-ghost" th:if="${mailtoLink != null}" th:href="${mailtoLink}">Email school</a>
+            </div>
+        </div>
+    </div>
+    <article class="form-card form-card-wide">
+        <div class="detail-grid">
+            <div><span class="label">Status</span><p th:text="${item.status}">OPEN</p></div>
+            <div><span class="label">From</span><p th:text="${item.fromUserEmail}">email</p></div>
+            <div><span class="label">School</span><p th:text="${item.schoolName} ?: '—'">School</p></div>
+            <div><span class="label">Created</span><p th:text="${item.createdAt}">—</p></div>
+            <div class="span-2"><span class="label">Message</span><p th:text="${item.body}">Body</p></div>
+            <div class="span-2" th:if="${item.adminReply != null}">
+                <span class="label">Staff reply</span>
+                <p th:text="${item.adminReply}">Reply</p>
+            </div>
+        </div>
+    </article>
+
+    <article class="form-card form-card-wide" style="margin-top:14px" sec:authorize="hasAuthority('REQUEST_WRITE')">
+        <h3 class="section-title">Staff reply</h3>
+        <form th:action="@{/admin/requests/{id}/reply(id=${item.uuid})}" method="post" class="form-grid">
+            <label>Status
+                <select name="status">
+                    <option th:each="st : ${statuses}" th:value="${st}" th:text="${st}"
+                            th:selected="${item.status == st}">OPEN</option>
+                </select>
+            </label>
+            <label class="span-2">Reply
+                <textarea name="adminReply" rows="4" th:text="${item.adminReply}"></textarea>
+            </label>
+            <div class="modal-actions span-3">
+                <button type="submit" class="btn btn-dark">Save reply</button>
+            </div>
+        </form>
+    </article>
+</section>
+</body>
+</html>

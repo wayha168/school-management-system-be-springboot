@@ -3,7 +3,9 @@ package com.project.school_management.controller.api;
 import java.util.List;
 import java.util.UUID;
 
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -16,6 +18,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.project.school_management.dto.ApiResponse;
+import com.project.school_management.dto.school.SchoolImage;
 import com.project.school_management.dto.user.UserRequest;
 import com.project.school_management.dto.user.UserResponse;
 import com.project.school_management.dto.user.UserUpdateRequest;
@@ -28,7 +31,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 
 @RestController
-@RequestMapping("/api/users")
+@RequestMapping("/api/v1/users")
 @Tag(name = "Users")
 @SecurityRequirement(name = "bearerAuth")
 public class UserController {
@@ -106,5 +109,16 @@ public class UserController {
         } catch (Exception ex) {
             throw new ErrorRuntime("Delete user failed", ex);
         }
+    }
+
+    @GetMapping("/{id}/avatar")
+    @PreAuthorize("hasAuthority('USER_READ')")
+    @Operation(summary = "Get user profile image")
+    public ResponseEntity<byte[]> avatar(@PathVariable UUID id) {
+        SchoolImage image = userService.getProfileImage(id);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CACHE_CONTROL, "private, max-age=3600")
+                .contentType(MediaType.parseMediaType(image.contentType()))
+                .body(image.data());
     }
 }

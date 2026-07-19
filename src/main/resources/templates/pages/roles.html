@@ -5,13 +5,20 @@
 <body>
 <section th:fragment="section">
     <div class="page-toolbar">
-        <div>
-            <h2 class="page-heading">Roles</h2>
-            <p class="muted">Manage roles on the platform</p>
-        </div>
-        <div class="page-toolbar-actions">
-            <a class="btn btn-dark" sec:authorize="hasAuthority('ROLES_WRITE')" th:href="@{/admin/roles/new}">Add Role</a>
-            <input type="search" class="search-input" placeholder="Search role..." data-table-search="roles-table">
+        <div class="page-toolbar-main">
+            <div>
+                <h2 class="page-heading">Roles</h2>
+                <p class="muted">Manage roles on the platform</p>
+            </div>
+            <div class="page-toolbar-actions">
+                <div class="page-toolbar-left">
+                    <input type="search" class="search-input" placeholder="Search role..."
+                           data-table-search="roles-table" aria-label="Search roles">
+                </div>
+                <div class="page-toolbar-right">
+                    <a class="btn btn-dark" sec:authorize="hasAuthority('ROLES_WRITE')" th:href="@{/admin/roles/new}">Add Role</a>
+                </div>
+            </div>
         </div>
     </div>
     <div class="table-wrap">
