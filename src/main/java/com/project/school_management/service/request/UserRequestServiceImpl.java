@@ -57,7 +57,10 @@ public class UserRequestServiceImpl implements UserRequestService {
     @Transactional(readOnly = true)
     public List<UserRequestResponse> listAll(RequestStatus status) {
         requireRequestWrite();
-        return requestRepository.findDetailedByStatus(status).stream()
+        boolean filterStatus = status != null;
+        return requestRepository
+                .findDetailedByStatus(filterStatus, filterStatus ? status : RequestStatus.OPEN)
+                .stream()
                 .filter(this::inSchoolScope)
                 .map(UserRequestResponse::from)
                 .toList();

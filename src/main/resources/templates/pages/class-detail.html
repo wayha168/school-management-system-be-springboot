@@ -26,6 +26,29 @@
             <div><span class="label">Status</span><p class="status-text status-active">Active</p></div>
         </div>
     </article>
+
+    <article class="panel-card" style="margin-top:14px">
+        <h3 class="section-title" style="margin-top:0">Subjects</h3>
+        <div class="table-wrap" th:if="${item.subjects != null and !#lists.isEmpty(item.subjects)}">
+            <table class="data-table">
+                <thead>
+                <tr>
+                    <th style="width:56px">#</th>
+                    <th>Subject</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr th:each="subj, iter : ${item.subjects}">
+                    <td th:text="${iter.count}">1</td>
+                    <td th:text="${subj}">Math</td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+        <p class="muted" style="margin:0" th:if="${item.subjects == null or #lists.isEmpty(item.subjects)}">
+            No subjects yet. Edit this class to add subjects for score sessions.
+        </p>
+    </article>
 </section>
 </body>
 </html>

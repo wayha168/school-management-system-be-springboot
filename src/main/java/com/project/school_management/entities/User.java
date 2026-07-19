@@ -1,5 +1,6 @@
 package com.project.school_management.entities;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -68,6 +69,10 @@ public class User {
 
     @Column(name = "room", length = 100)
     private String room;
+
+    /** Monthly salary for teacher / staff (and other paid roles). */
+    @Column(name = "salary", precision = 14, scale = 2)
+    private BigDecimal salary;
 
     @Lob
     @JdbcTypeCode(SqlTypes.BINARY)

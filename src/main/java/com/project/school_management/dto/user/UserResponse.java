@@ -1,5 +1,6 @@
 package com.project.school_management.dto.user;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
@@ -27,6 +28,7 @@ public class UserResponse {
     private String classNames;
     private String grade;
     private String room;
+    private BigDecimal salary;
     private boolean hasProfileImage;
     private String profileImageUrl;
     private LocalDateTime createdAt;
@@ -71,6 +73,7 @@ public class UserResponse {
                 .classNames(classNames)
                 .grade(grade)
                 .room(user.getRoom())
+                .salary(user.getSalary())
                 .hasProfileImage(hasProfileImage)
                 .profileImageUrl(hasProfileImage && id != null ? "/admin/users/" + id + "/avatar" : null)
                 .createdAt(user.getCreatedAt())

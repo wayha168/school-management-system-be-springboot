@@ -2,6 +2,20 @@
     var STORAGE_KEY = "sm.notifications.v1";
     var filter = "unread";
 
+    var TYPE_PATHS = {
+        user: "/admin/users",
+        class: "/admin/classes",
+        school: "/admin/schools",
+        score: "/admin/scores",
+        grade: "/admin/grades",
+        attendance: "/admin/attendance",
+        request: "/admin/requests",
+        finance: "/admin/finance",
+        role: "/admin/roles",
+        permission: "/admin/permissions",
+        welcome: "/admin/dashboard"
+    };
+
     var DEFAULT_ITEMS = [
         {
             id: "n1",
@@ -9,7 +23,8 @@
             title: "New user registered",
             body: "A new account was created and is ready for role assignment.",
             at: "2026-07-19T09:35:08",
-            read: false
+            read: false,
+            href: "/admin/users"
         },
         {
             id: "n2",
@@ -17,7 +32,8 @@
             title: "Welcome to School Management",
             body: "Your dashboard is ready. Explore schools, users, classes, and roles.",
             at: "2026-07-19T09:35:07",
-            read: false
+            read: false,
+            href: "/admin/dashboard"
         },
         {
             id: "n3",
@@ -25,7 +41,8 @@
             title: "Class generation updated",
             body: "A class generation year was changed for the current school year.",
             at: "2026-07-18T14:12:00",
-            read: true
+            read: true,
+            href: "/admin/classes"
         },
         {
             id: "n4",
@@ -33,7 +50,8 @@
             title: "School profile updated",
             body: "Logo or banner was updated for a school profile.",
             at: "2026-07-17T11:05:22",
-            read: true
+            read: true,
+            href: "/admin/schools"
         }
     ];
 
@@ -45,13 +63,24 @@
         return Array.from((root || document).querySelectorAll(sel));
     }
 
+    function resolveHref(item) {
+        if (!item) return "/admin/dashboard";
+        if (item.href) return item.href;
+        return TYPE_PATHS[item.type] || "/admin/dashboard";
+    }
+
     function loadItems() {
         try {
             var raw = localStorage.getItem(STORAGE_KEY);
             if (!raw) return DEFAULT_ITEMS.map(clone);
             var parsed = JSON.parse(raw);
             if (!Array.isArray(parsed) || !parsed.length) return DEFAULT_ITEMS.map(clone);
-            return parsed;
+            // Backfill href for older stored items
+            return parsed.map(function (item) {
+                var next = clone(item);
+                if (!next.href) next.href = resolveHref(next);
+                return next;
+            });
         } catch (e) {
             return DEFAULT_ITEMS.map(clone);
         }
@@ -125,8 +154,11 @@
 
         list.innerHTML = visible
             .map(function (item) {
+                var href = resolveHref(item);
                 return (
-                    '<article class="notif-item' + (item.read ? " is-read" : " is-unread") + '" data-notif-id="' + item.id + '">' +
+                    '<article class="notif-item' + (item.read ? " is-read" : " is-unread") +
+                    '" data-notif-id="' + item.id + '" data-notif-href="' + escapeHtml(href) +
+                    '" role="link" tabindex="0">' +
                     '<div class="notif-icon notif-icon-' + item.type + '">' + iconSvg(item.type) + "</div>" +
                     '<div class="notif-content">' +
                     '<div class="notif-title-row">' +
@@ -143,7 +175,13 @@
 
         qsa(".notif-item", list).forEach(function (el) {
             el.addEventListener("click", function () {
-                markRead(el.getAttribute("data-notif-id"));
+                openNotification(el.getAttribute("data-notif-id"), el.getAttribute("data-notif-href"));
+            });
+            el.addEventListener("keydown", function (e) {
+                if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    openNotification(el.getAttribute("data-notif-id"), el.getAttribute("data-notif-href"));
+                }
             });
         });
     }
@@ -167,8 +205,16 @@
         });
         if (changed) {
             saveItems(items);
-            render();
         }
+        return changed;
+    }
+
+    function openNotification(id, href) {
+        markRead(id);
+        var target = href || "/admin/dashboard";
+        closeDrawer();
+        // Navigate after marking unread → read
+        window.location.href = target;
     }
 
     function markAllRead() {
@@ -205,6 +251,9 @@
     document.addEventListener("DOMContentLoaded", function () {
         if (!localStorage.getItem(STORAGE_KEY)) {
             saveItems(DEFAULT_ITEMS.map(clone));
+        } else {
+            // Persist backfilled hrefs once
+            saveItems(loadItems());
         }
 
         qsa("[data-notifications-open]").forEach(function (btn) {

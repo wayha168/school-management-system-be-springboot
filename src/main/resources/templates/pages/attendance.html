@@ -1,131 +1,142 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org"
-      xmlns:sec="http://www.thymeleaf.org/extras/spring-security"
-      th:replace="~{layout :: layout(~{::section})}">
+<html xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security"
+    th:replace="~{layout :: layout(~{::section})}">
+
 <body>
-<section th:fragment="section">
-    <div class="page-toolbar">
-        <div class="page-toolbar-main">
-            <div>
-                <h2 class="page-heading">Attendance</h2>
-                <p class="muted">Classes · who teaches them · role-scoped records</p>
-            </div>
-            <div class="page-toolbar-actions">
-                <div class="page-toolbar-left">
-                    <input type="search" class="search-input" placeholder="Search..."
-                           data-table-search="attendance-classes-table" data-view-search>
+    <section th:fragment="section">
+        <div class="page-toolbar">
+            <div class="page-toolbar-main">
+                <div>
+                    <h2 class="page-heading" data-i18n="attendance.title">Attendance</h2>
+                    <p class="muted" data-i18n="attendance.subtitle">Classes · who teaches them · role-scoped records</p>
                 </div>
-                <div class="page-toolbar-right">
-                    <a class="btn btn-dark" sec:authorize="hasAuthority('ATTENDANCE_WRITE')"
-                       th:href="@{/admin/attendance/mark}">Mark class</a>
+                <div class="page-toolbar-actions">
+                    <div class="page-toolbar-left">
+                        <input type="search" class="search-input" placeholder="Search..."
+                            data-i18n-placeholder="search.generic"
+                            data-table-search="attendance-classes-table" data-view-search>
+                    </div>
+                    <div class="page-toolbar-right">
+                        <a class="btn btn-dark" sec:authorize="hasAuthority('ATTENDANCE_WRITE')"
+                            th:href="@{/admin/attendance/mark}" data-i18n="attendance.assign">Assign attendance</a>
+                    </div>
                 </div>
             </div>
         </div>
-    </div>
 
-    <div class="view-switch-row">
-        <div class="view-switch" data-view-switch
-             th:attr="data-view-default=${activeTab != null ? activeTab : 'classes'}"
-             role="tablist" aria-label="Attendance view">
-            <button type="button" class="view-switch-btn" data-view-target="classes"
-                    data-search-table="attendance-classes-table">Classes</button>
-            <button type="button" class="view-switch-btn" data-view-target="records"
-                    data-search-table="attendance-table">Records</button>
-        </div>
-    </div>
-
-    <div class="view-panel" data-view-panel="classes" data-search-table="attendance-classes-table">
-        <div class="table-wrap">
-            <table class="data-table" id="attendance-classes-table">
-                <thead>
-                <tr>
-                    <th>Class</th>
-                    <th>Grade</th>
-                    <th>Generation</th>
-                    <th>Belongs to (teachers)</th>
-                    <th>Students</th>
-                    <th>Actions</th>
-                </tr>
-                </thead>
-                <tbody>
-                <tr th:each="c : ${classOverviews}"
-                    th:attr="data-search=${c.className + ' ' + c.teachersLabel + ' ' + (c.grade ?: '')}">
-                    <td th:text="${c.className}">Class</td>
-                    <td th:text="${c.grade} ?: '—'">Grade</td>
-                    <td th:text="${c.generationCode} ?: '—'">G9</td>
-                    <td th:text="${c.teachersLabel}">Teacher</td>
-                    <td th:text="${c.studentCount}">0</td>
-                    <td>
-                        <a class="btn btn-ghost btn-sm"
-                           th:href="@{/admin/attendance/classes/{id}(id=${c.classUuid}, date=${selectedDate})}">View students</a>
-                    </td>
-                </tr>
-                <tr th:if="${#lists.isEmpty(classOverviews)}">
-                    <td colspan="6">No classes available for your scope.</td>
-                </tr>
-                </tbody>
-            </table>
-        </div>
-    </div>
-
-    <div class="view-panel" data-view-panel="records" data-search-table="attendance-table" hidden>
-        <div class="view-switch-row">
-            <div class="view-switch" role="tablist" aria-label="Filter by role">
-                <a class="view-switch-btn"
-                   th:classappend="${selectedRole == null} ? ' is-active'"
-                   th:href="@{/admin/attendance(tab='records', date=${selectedDate}, classUuid=${selectedClassUuid})}">All roles</a>
-                <a class="view-switch-btn" th:each="r : ${roleTabs}"
-                   th:classappend="${selectedRole == r} ? ' is-active'"
-                   th:href="@{/admin/attendance(tab='records', role=${r}, date=${selectedDate}, classUuid=${selectedClassUuid})}"
-                   th:text="${r}">STUDENT</a>
+        <!-- Everything in one row: switch · role · generation · date · class · filter -->
+        <form class="attendance-toolbar-one" method="get" th:action="@{/admin/attendance}">
+            <div class="view-switch" data-view-switch
+                th:attr="data-view-default=${activeTab != null ? activeTab : 'classes'}" role="tablist"
+                aria-label="Attendance view">
+                <button type="button" class="view-switch-btn" data-view-target="classes"
+                    data-search-table="attendance-classes-table" data-i18n="attendance.classes">Classes</button>
+                <button type="button" class="view-switch-btn" data-view-target="records"
+                    data-search-table="attendance-table" data-i18n="attendance.records">Records</button>
             </div>
-            <form class="filter-bar" method="get" th:action="@{/admin/attendance}">
-                <input type="hidden" name="tab" value="records">
-                <input type="hidden" name="role" th:value="${selectedRole}">
-                <input type="date" name="date" th:value="${selectedDate}">
-                <select name="classUuid" onchange="this.form.submit()">
-                    <option value="">All classes</option>
-                    <option th:each="c : ${classes}" th:value="${c.uuid}"
-                            th:selected="${selectedClassUuid != null and selectedClassUuid == c.uuid}"
-                            th:text="${c.name}">Class</option>
-                </select>
-                <button type="submit" class="btn btn-ghost">Filter</button>
-            </form>
+
+            <input type="hidden" name="tab" th:value="${activeTab != null ? activeTab : 'classes'}" data-attendance-tab>
+
+            <select name="role" onchange="this.form.submit()" aria-label="Role" data-view-action="records"
+                th:hidden="${activeTab == null or activeTab != 'records'}">
+                <option value="" th:selected="${selectedRole == null}">All roles</option>
+                <option th:each="r : ${roleTabs}" th:value="${r}" th:text="${r}" th:selected="${selectedRole == r}">
+                    STUDENT</option>
+            </select>
+
+            <select name="generation" onchange="this.form.submit()" aria-label="Generation">
+                <option value="">All generations</option>
+                <option th:each="g : ${generations}" th:value="${g}"
+                    th:selected="${selectedGeneration != null and selectedGeneration == g}" th:text="${'G' + g}">G9
+                </option>
+            </select>
+
+            <select name="classUuid" onchange="this.form.submit()" aria-label="Class">
+                <option value="">All classes</option>
+                <option th:each="c : ${classes}" th:value="${c.uuid}"
+                    th:selected="${selectedClassUuid != null and selectedClassUuid == c.uuid}" th:text="${c.name}">Class
+                </option>
+            </select>
+
+            <input type="date" name="date" th:value="${selectedDate}" aria-label="Date">
+
+            <button type="submit" class="btn btn-ghost">Filter</button>
+        </form>
+
+        <div class="view-panel" data-view-panel="classes" data-search-table="attendance-classes-table">
+            <nav class="alpha-filter" data-alpha-filter="attendance-classes-table" role="toolbar"></nav>
+            <div class="table-wrap">
+                <table class="data-table" id="attendance-classes-table">
+                    <thead>
+                        <tr>
+                            <th data-i18n="dash.class">Class</th>
+                            <th data-i18n="dash.grade">Grade</th>
+                            <th>Generation</th>
+                            <th data-i18n="attendance.belongs">Belongs to (teachers)</th>
+                            <th data-i18n="attendance.students">Students</th>
+                            <th data-i18n="common.actions">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:each="c : ${classOverviews}"
+                            th:attr="data-search=${c.className + ' ' + c.teachersLabel + ' ' + (c.grade ?: '')},
+                                     data-name=${c.className}">
+                            <td th:text="${c.className}">Class</td>
+                            <td th:text="${c.grade} ?: '—'">Grade</td>
+                            <td th:text="${c.generationCode} ?: '—'">G9</td>
+                            <td th:text="${c.teachersLabel}">Teacher</td>
+                            <td th:text="${c.studentCount}">0</td>
+                            <td>
+                                <a class="btn btn-ghost btn-sm"
+                                    th:href="@{/admin/attendance/classes/{id}(id=${c.classUuid}, date=${selectedDate})}">View
+                                    students</a>
+                            </td>
+                        </tr>
+                        <tr th:if="${#lists.isEmpty(classOverviews)}">
+                            <td colspan="6">No classes available for your scope.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
         </div>
 
-        <div class="table-wrap">
-            <table class="data-table" id="attendance-table">
-                <thead>
-                <tr>
-                    <th>Date</th>
-                    <th>User</th>
-                    <th>Role</th>
-                    <th>Class</th>
-                    <th>Status</th>
-                    <th>Marked by</th>
-                    <th>Remark</th>
-                </tr>
-                </thead>
-                <tbody>
-                <tr th:each="item : ${records}"
-                    th:attr="data-search=${item.userName + ' ' + item.className + ' ' + item.userRole}">
-                    <td th:text="${item.attendanceDate}">2026-01-01</td>
-                    <td th:text="${item.userName}">User</td>
-                    <td>
-                        <span class="role-badge"
-                              th:classappend="${item.userRole != null ? ' role-' + #strings.toLowerCase(item.userRole.name()) : ''}"
-                              th:text="${item.userRole} ?: '—'">STUDENT</span>
-                    </td>
-                    <td th:text="${item.className} ?: '—'">Class</td>
-                    <td><span class="role-badge" th:text="${item.status}">PRESENT</span></td>
-                    <td th:text="${item.markedByName} ?: '—'">Teacher</td>
-                    <td th:text="${item.remark} ?: '—'">—</td>
-                </tr>
-                <tr th:if="${#lists.isEmpty(records)}"><td colspan="7">No attendance records for this filter.</td></tr>
-                </tbody>
-            </table>
+        <div class="view-panel" data-view-panel="records" data-search-table="attendance-table" hidden>
+            <div class="table-wrap">
+                <table class="data-table" id="attendance-table">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>User</th>
+                            <th>Role</th>
+                            <th>Class</th>
+                            <th>Status</th>
+                            <th>Marked by</th>
+                            <th>Remark</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:each="item : ${records}"
+                            th:attr="data-search=${item.userName + ' ' + item.className + ' ' + item.userRole}">
+                            <td th:text="${item.attendanceDate}">2026-01-01</td>
+                            <td th:text="${item.userName}">User</td>
+                            <td>
+                                <span class="role-badge"
+                                    th:classappend="${item.userRole != null ? ' role-' + #strings.toLowerCase(item.userRole.name()) : ''}"
+                                    th:text="${item.userRole} ?: '—'">STUDENT</span>
+                            </td>
+                            <td th:text="${item.className} ?: '—'">Class</td>
+                            <td><span class="role-badge" th:text="${item.status}">PRESENT</span></td>
+                            <td th:text="${item.markedByName} ?: '—'">Teacher</td>
+                            <td th:text="${item.remark} ?: '—'">—</td>
+                        </tr>
+                        <tr th:if="${#lists.isEmpty(records)}">
+                            <td colspan="7">No attendance records for this filter.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
         </div>
-    </div>
-</section>
+    </section>
 </body>
+
 </html>

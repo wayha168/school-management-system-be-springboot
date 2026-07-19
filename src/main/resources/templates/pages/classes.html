@@ -7,23 +7,24 @@
     <div class="page-toolbar">
         <div class="page-toolbar-main">
             <div>
-                <h2 class="page-heading">Classes</h2>
-                <p class="muted">Manage school classes</p>
+                <h2 class="page-heading" data-i18n="classes.title">Classes</h2>
+                <p class="muted" data-i18n="classes.subtitle">Manage school classes</p>
             </div>
             <div class="page-toolbar-actions">
                 <div class="page-toolbar-left">
                     <input type="search" class="search-input" placeholder="Search name or school..."
+                           data-i18n-placeholder="search.nameSchool"
                            data-table-search="classes-table" aria-label="Search classes">
                     <form class="filter-bar" method="get" th:action="@{/admin/classes}">
                         <select name="grade" onchange="this.form.submit()" aria-label="Filter by grade">
-                            <option value="">All grades</option>
+                            <option value="" data-i18n="filter.allGrades">All grades</option>
                             <option th:each="gr : ${grades}"
                                     th:value="${gr}"
                                     th:selected="${selectedGrade != null and selectedGrade == gr}"
                                     th:text="${gr}">Grade 10</option>
                         </select>
                         <select name="generation" onchange="this.form.submit()" aria-label="Filter by generation">
-                            <option value="">All generations</option>
+                            <option value="" data-i18n="filter.allGenerations">All generations</option>
                             <option th:each="g : ${generations}"
                                     th:value="${g}"
                                     th:selected="${selectedGeneration != null and selectedGeneration == g}"
@@ -32,29 +33,32 @@
                     </form>
                 </div>
                 <div class="page-toolbar-right">
-                    <a class="btn btn-dark" sec:authorize="hasAuthority('CLASS_WRITE')" th:href="@{/admin/classes/new}">Add Class</a>
+                    <a class="btn btn-dark" sec:authorize="hasAuthority('CLASS_WRITE')" th:href="@{/admin/classes/new}"
+                       data-i18n="classes.add">Add Class</a>
                 </div>
             </div>
         </div>
     </div>
+    <nav class="alpha-filter" data-alpha-filter="classes-table" role="toolbar"></nav>
     <div class="table-wrap">
         <table class="data-table" id="classes-table">
             <thead>
             <tr>
-                <th>ID</th>
-                <th>Photo</th>
-                <th>Name</th>
-                <th>Grade</th>
+                <th data-i18n="common.id">ID</th>
+                <th data-i18n="common.photo">Photo</th>
+                <th data-i18n="common.name">Name</th>
+                <th data-i18n="dash.grade">Grade</th>
                 <th>Generation</th>
-                <th>School</th>
-                <th>Status</th>
-                <th>Actions</th>
+                <th data-i18n="header.school">School</th>
+                <th data-i18n="common.status">Status</th>
+                <th data-i18n="common.actions">Actions</th>
             </tr>
             </thead>
             <tbody>
             <tr th:each="item : ${classes}"
-                th:attr="data-search=${item.name + ' ' + item.generation + ' ' + item.schoolName + ' ' + item.uuid}">
-                <td><code class="id-chip" th:title="${item.uuid}" th:text="${#strings.substring(item.uuid.toString(),0,8)}">id</code></td>
+                th:attr="data-search=${item.name + ' ' + item.generation + ' ' + item.schoolName + ' ' + item.uuid},
+                         data-name=${item.name}">
+                <td><code class="id-chip" th:title="${item.uuid}" th:text="${#strings.substring(item.uuid.toString(),0,3) + '...'}">abc...</code></td>
                 <td><span class="avatar-circle" th:text="${#strings.substring(item.name,0,1)}">C</span></td>
                 <td th:text="${item.name}">Name</td>
                 <td th:text="${item.grade} ?: '—'">Grade</td>

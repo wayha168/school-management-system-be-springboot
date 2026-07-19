@@ -6,7 +6,7 @@
     <div class="page-toolbar">
         <div>
             <h2 class="page-heading" th:text="${mode == 'edit'} ? 'Edit Class' : 'Add Class'">Add Class</h2>
-            <p class="muted">Assign class with grade, generation (G#) and academic year</p>
+            <p class="muted">Assign class with grade, generation (G#), academic year, and subjects</p>
         </div>
         <a class="btn btn-ghost" th:href="@{/admin/classes}">Back</a>
     </div>
@@ -38,12 +38,114 @@
                             th:selected="${item != null and item.schoolUuid == school.uuid}">School</option>
                 </select>
             </label>
+
+            <div class="span-3">
+                <div class="page-toolbar" style="margin:8px 0 10px; padding:0">
+                    <div>
+                        <strong>Subjects</strong>
+                        <p class="muted" style="margin:4px 0 0">Subjects for this class (used in score session table)</p>
+                    </div>
+                    <button type="button" class="btn btn-ghost btn-sm" id="add-subject-row">Add subject</button>
+                </div>
+                <div class="table-wrap">
+                    <table class="data-table" id="class-subjects-table">
+                        <thead>
+                        <tr>
+                            <th style="width:56px">#</th>
+                            <th>Subject</th>
+                            <th style="width:90px">Actions</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        <tr th:each="subj, iter : ${item?.subjects}"
+                            class="subject-row">
+                            <td class="subject-index" th:text="${iter.count}">1</td>
+                            <td>
+                                <input type="text" name="subjects"
+                                       th:value="${subj}" placeholder="e.g. Math" style="margin:0">
+                            </td>
+                            <td>
+                                <button type="button" class="icon-action danger remove-subject-row" title="Remove">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
+                                </button>
+                            </td>
+                        </tr>
+                        <tr th:if="${item == null or item.subjects == null or #lists.isEmpty(item.subjects)}"
+                            class="subject-row">
+                            <td class="subject-index">1</td>
+                            <td>
+                                <input type="text" name="subjects" placeholder="e.g. Math" style="margin:0">
+                            </td>
+                            <td>
+                                <button type="button" class="icon-action danger remove-subject-row" title="Remove">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
+                                </button>
+                            </td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
             <div class="modal-actions span-3">
                 <a class="btn btn-ghost" th:href="@{/admin/classes}">Cancel</a>
                 <button type="submit" class="btn btn-dark" th:text="${mode == 'edit'} ? 'Save' : 'Create'">Create</button>
             </div>
         </form>
     </article>
+
+    <template id="subject-row-template">
+        <tr class="subject-row">
+            <td class="subject-index">1</td>
+            <td>
+                <input type="text" name="subjects" placeholder="e.g. Math" style="margin:0">
+            </td>
+            <td>
+                <button type="button" class="icon-action danger remove-subject-row" title="Remove">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
+                </button>
+            </td>
+        </tr>
+    </template>
+
+    <script>
+        (function () {
+            const table = document.getElementById('class-subjects-table');
+            const tbody = table && table.querySelector('tbody');
+            const template = document.getElementById('subject-row-template');
+            const addBtn = document.getElementById('add-subject-row');
+            if (!tbody || !template || !addBtn) return;
+
+            function reindex() {
+                tbody.querySelectorAll('.subject-row').forEach((row, i) => {
+                    const idx = row.querySelector('.subject-index');
+                    if (idx) idx.textContent = String(i + 1);
+                });
+            }
+
+            addBtn.addEventListener('click', () => {
+                const node = template.content.cloneNode(true);
+                tbody.appendChild(node);
+                reindex();
+                const input = tbody.querySelector('.subject-row:last-child input[name="subjects"]');
+                if (input) input.focus();
+            });
+
+            tbody.addEventListener('click', (e) => {
+                const btn = e.target.closest('.remove-subject-row');
+                if (!btn) return;
+                const row = btn.closest('.subject-row');
+                if (!row) return;
+                if (tbody.querySelectorAll('.subject-row').length === 1) {
+                    const input = row.querySelector('input[name="subjects"]');
+                    if (input) input.value = '';
+                    return;
+                }
+                row.remove();
+                reindex();
+            });
+        })();
+    </script>
 </section>
 </body>
 </html>

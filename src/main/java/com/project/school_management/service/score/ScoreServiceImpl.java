@@ -18,6 +18,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import com.project.school_management.dto.dashboard.ChartSeries;
+import com.project.school_management.dto.dashboard.GpaSummaryStats;
+import com.project.school_management.dto.dashboard.TopStudentRow;
+import com.project.school_management.dto.score.ScoreBatchRequest;
+import com.project.school_management.dto.score.ScoreMarkItem;
 import com.project.school_management.dto.score.ScoreRequest;
 import com.project.school_management.dto.score.ScoreResponse;
 import com.project.school_management.dto.score.StudentGpaResponse;
@@ -71,6 +76,91 @@ public class ScoreServiceImpl implements ScoreService {
     }
 
     @Override
+    public int upsertBatch(ScoreBatchRequest request) {
+        if (request == null || request.getItems() == null || request.getItems().isEmpty()) {
+            throw new IllegalArgumentException("No student scores to save");
+        }
+        String defaultSubject = blankToNull(request.getSubject());
+        String term = blankTo(request.getTerm(), "Term 1");
+        BigDecimal maxScore = request.getMaxScore() == null ? BigDecimal.valueOf(100) : request.getMaxScore();
+        if (maxScore.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("Max score must be greater than 0");
+        }
+
+        SchoolClass schoolClass = schoolClassRepository.findDetailedById(request.getClassUuid())
+                .orElseThrow(() -> new ExceptionNotFound("Class not found: " + request.getClassUuid()));
+        assertCanManage(schoolClass);
+
+        int saved = 0;
+        for (ScoreMarkItem item : request.getItems()) {
+            if (item == null || item.getStudentUuid() == null || item.getScore() == null) {
+                continue;
+            }
+            String subject = blankToNull(item.getSubject());
+            if (subject == null) {
+                subject = defaultSubject;
+            }
+            if (subject == null) {
+                throw new IllegalArgumentException("Subject is required");
+            }
+            if (item.getScore().compareTo(BigDecimal.ZERO) < 0) {
+                throw new IllegalArgumentException("Score cannot be negative");
+            }
+            if (item.getScore().compareTo(maxScore) > 0) {
+                throw new IllegalArgumentException("Score cannot exceed max score (" + maxScore + ")");
+            }
+
+            StudentScore existing = scoreRepository
+                    .findByStudentClassSubjectTerm(item.getStudentUuid(), schoolClass.getUuid(), subject, term)
+                    .orElse(null);
+
+            ScoreRequest single = new ScoreRequest();
+            single.setStudentUuid(item.getStudentUuid());
+            single.setClassUuid(schoolClass.getUuid());
+            single.setSubject(subject);
+            single.setTerm(term);
+            single.setScore(item.getScore());
+            single.setMaxScore(maxScore);
+            single.setRemark(item.getRemark());
+
+            if (existing == null) {
+                scoreRepository.save(map(new StudentScore(), single));
+            } else {
+                assertCanManage(existing.getSchoolClass());
+                scoreRepository.save(map(existing, single));
+            }
+            saved++;
+        }
+        if (saved == 0) {
+            throw new IllegalArgumentException("Enter at least one student score");
+        }
+        return saved;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<ScoreResponse> listForSession(UUID classUuid, String subject, String term) {
+        if (classUuid == null) {
+            return List.of();
+        }
+        String resolvedTerm = blankTo(term, "Term 1");
+        if (subject == null || subject.isBlank()) {
+            return scoreRepository.findDetailedByClassUuid(classUuid).stream()
+                    .filter(s -> s.getTerm() != null
+                            && s.getTerm().trim().equalsIgnoreCase(resolvedTerm))
+                    .filter(this::scoreInScope)
+                    .map(ScoreResponse::from)
+                    .toList();
+        }
+        return scoreRepository
+                .findDetailedByClassSubjectTerm(classUuid, subject.trim(), resolvedTerm)
+                .stream()
+                .filter(this::scoreInScope)
+                .map(ScoreResponse::from)
+                .toList();
+    }
+
+    @Override
     @Transactional(readOnly = true)
     public ScoreResponse getById(UUID id) {
         StudentScore score = findScore(id);
@@ -102,11 +192,7 @@ public class ScoreServiceImpl implements ScoreService {
             }
         }
         return scores.stream()
-                .filter(s -> s.getSchoolClass() == null
-                        || s.getSchoolClass().getSchool() == null
-                        || schoolScopeService.scopedSchoolUuid().isEmpty()
-                        || schoolScopeService.scopedSchoolUuid().get()
-                                .equals(s.getSchoolClass().getSchool().getUuid()))
+                .filter(this::scoreInScope)
                 .map(ScoreResponse::from)
                 .toList();
     }
@@ -200,6 +286,206 @@ public class ScoreServiceImpl implements ScoreService {
             return List.of();
         }
         return scoreRepository.findStudentUuidsByGeneration(generation);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public GpaSummaryStats gpaSummary() {
+        List<StudentAgg> aggs = aggregateStudentGpas(scopedScores());
+        if (aggs.isEmpty()) {
+            return GpaSummaryStats.builder()
+                    .averageGpa(BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP))
+                    .averagePercent(BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP))
+                    .studentsWithScores(0)
+                    .totalScoreRows(0)
+                    .topLetter("—")
+                    .build();
+        }
+        BigDecimal gpaSum = BigDecimal.ZERO;
+        BigDecimal pctSum = BigDecimal.ZERO;
+        int rows = 0;
+        Map<String, Integer> letters = new LinkedHashMap<>();
+        for (StudentAgg a : aggs) {
+            gpaSum = gpaSum.add(a.gpa);
+            pctSum = pctSum.add(a.avgPercent);
+            rows += a.scoreCount;
+            letters.merge(a.letter, 1, Integer::sum);
+        }
+        String topLetter = letters.entrySet().stream()
+                .max(Map.Entry.comparingByValue())
+                .map(Map.Entry::getKey)
+                .orElse("—");
+        int n = aggs.size();
+        return GpaSummaryStats.builder()
+                .averageGpa(gpaSum.divide(BigDecimal.valueOf(n), 2, RoundingMode.HALF_UP))
+                .averagePercent(pctSum.divide(BigDecimal.valueOf(n), 2, RoundingMode.HALF_UP))
+                .studentsWithScores(n)
+                .totalScoreRows(rows)
+                .topLetter(topLetter)
+                .build();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<TopStudentRow> topStudentsByClass() {
+        return topByGroup(aggregateStudentGpas(scopedScores()), true);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<TopStudentRow> topStudentsByGrade() {
+        return topByGroup(aggregateStudentGpas(scopedScores()), false);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public ChartSeries termScoreChart() {
+        List<StudentScore> scores = scopedScores();
+        Map<String, List<BigDecimal>> buckets = new LinkedHashMap<>();
+        buckets.put("Midterm", new ArrayList<>());
+        buckets.put("Final", new ArrayList<>());
+        buckets.put("Other", new ArrayList<>());
+        for (StudentScore score : scores) {
+            String term = score.getTerm() == null ? "" : score.getTerm().trim().toLowerCase(Locale.ROOT);
+            String bucket;
+            if (term.contains("mid")) {
+                bucket = "Midterm";
+            } else if (term.contains("final")) {
+                bucket = "Final";
+            } else if (!term.isBlank()) {
+                bucket = score.getTerm().trim();
+                buckets.putIfAbsent(bucket, new ArrayList<>());
+            } else {
+                bucket = "Other";
+            }
+            buckets.get(bucket).add(GradeScale.percent(score.getScore(), score.getMaxScore()));
+        }
+        List<String> labels = new ArrayList<>();
+        List<Number> values = new ArrayList<>();
+        for (Map.Entry<String, List<BigDecimal>> e : buckets.entrySet()) {
+            if (e.getValue().isEmpty() && !List.of("Midterm", "Final").contains(e.getKey())) {
+                continue;
+            }
+            labels.add(e.getKey());
+            if (e.getValue().isEmpty()) {
+                values.add(0);
+            } else {
+                BigDecimal sum = e.getValue().stream().reduce(BigDecimal.ZERO, BigDecimal::add);
+                values.add(sum.divide(BigDecimal.valueOf(e.getValue().size()), 2, RoundingMode.HALF_UP));
+            }
+        }
+        return ChartSeries.builder().labels(labels).values(values).build();
+    }
+
+    private List<StudentScore> scopedScores() {
+        List<StudentScore> all = scoreRepository.findAllDetailed();
+        return all.stream().filter(this::scoreInScope).toList();
+    }
+
+    private boolean scoreInScope(StudentScore score) {
+        if (score.getSchoolClass() != null && score.getSchoolClass().getSchool() != null) {
+            boolean schoolOk = schoolScopeService.scopedSchoolUuid().isEmpty()
+                    || schoolScopeService.scopedSchoolUuid().get()
+                            .equals(score.getSchoolClass().getSchool().getUuid());
+            if (!schoolOk) {
+                return false;
+            }
+        }
+        User current = schoolScopeService.requireCurrentUser();
+        RoleName role = current.getRole() != null ? current.getRole().getName() : null;
+        if (role != RoleName.TEACHER) {
+            return true;
+        }
+        if (score.getSchoolClass() == null || current.getSchoolClasses() == null) {
+            return false;
+        }
+        UUID classUuid = score.getSchoolClass().getUuid();
+        return current.getSchoolClasses().stream().anyMatch(c -> c.getUuid().equals(classUuid));
+    }
+
+    private List<StudentAgg> aggregateStudentGpas(List<StudentScore> scores) {
+        Map<UUID, List<StudentScore>> byStudent = new LinkedHashMap<>();
+        for (StudentScore score : scores) {
+            if (score.getStudent() == null) {
+                continue;
+            }
+            byStudent.computeIfAbsent(score.getStudent().getUuid(), k -> new ArrayList<>()).add(score);
+        }
+        List<StudentAgg> result = new ArrayList<>();
+        for (Map.Entry<UUID, List<StudentScore>> entry : byStudent.entrySet()) {
+            StudentGpaResponse gpa = buildGpa(entry.getValue().get(0).getStudent(), entry.getValue(), null, null);
+            User student = entry.getValue().get(0).getStudent();
+            Map<UUID, String> classNames = new LinkedHashMap<>();
+            Map<String, String> grades = new LinkedHashMap<>();
+            for (StudentScore s : entry.getValue()) {
+                if (s.getSchoolClass() != null) {
+                    classNames.put(s.getSchoolClass().getUuid(), s.getSchoolClass().getName());
+                    String grade = student.getGrade() != null && !student.getGrade().isBlank()
+                            ? student.getGrade().trim()
+                            : (s.getSchoolClass().getGrade() != null ? s.getSchoolClass().getGrade().trim() : "—");
+                    grades.put(grade, grade);
+                }
+            }
+            if (classNames.isEmpty() && student.getSchoolClasses() != null) {
+                student.getSchoolClasses().forEach(c -> classNames.put(c.getUuid(), c.getName()));
+            }
+            if (grades.isEmpty()) {
+                String g = student.getGrade() != null && !student.getGrade().isBlank() ? student.getGrade() : "—";
+                grades.put(g, g);
+            }
+            result.add(new StudentAgg(
+                    student.getUuid(),
+                    student.getName(),
+                    gpa.getGpa(),
+                    gpa.getAveragePercent(),
+                    gpa.getLetterGrade(),
+                    gpa.getTotalScores(),
+                    classNames,
+                    grades));
+        }
+        return result;
+    }
+
+    private List<TopStudentRow> topByGroup(List<StudentAgg> aggs, boolean byClass) {
+        Map<String, TopStudentRow> best = new LinkedHashMap<>();
+        for (StudentAgg a : aggs) {
+            Map<String, String> groups = byClass
+                    ? a.classNames.entrySet().stream()
+                            .collect(java.util.stream.Collectors.toMap(
+                                    e -> e.getKey().toString(),
+                                    Map.Entry::getValue,
+                                    (x, y) -> x,
+                                    LinkedHashMap::new))
+                    : a.grades;
+            for (Map.Entry<String, String> g : groups.entrySet()) {
+                TopStudentRow existing = best.get(g.getKey());
+                if (existing == null || a.gpa.compareTo(existing.getGpa()) > 0) {
+                    best.put(g.getKey(), TopStudentRow.builder()
+                            .studentUuid(a.studentUuid)
+                            .studentName(a.studentName)
+                            .groupKey(g.getKey())
+                            .groupLabel(g.getValue())
+                            .gpa(a.gpa)
+                            .averagePercent(a.avgPercent)
+                            .letterGrade(a.letter)
+                            .build());
+                }
+            }
+        }
+        return best.values().stream()
+                .sorted((x, y) -> y.getGpa().compareTo(x.getGpa()))
+                .toList();
+    }
+
+    private record StudentAgg(
+            UUID studentUuid,
+            String studentName,
+            BigDecimal gpa,
+            BigDecimal avgPercent,
+            String letter,
+            int scoreCount,
+            Map<UUID, String> classNames,
+            Map<String, String> grades) {
     }
 
     private ScoreExcelService requireExcel() {

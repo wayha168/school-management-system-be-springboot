@@ -7,14 +7,17 @@
     </div>
 
     <div class="header-actions" th:if="${account != null}">
+        <div th:replace="~{components/prefs-switch :: prefs}"></div>
         <span class="online-pill" title="Users online right now">
             <span class="dot online-dot"></span>
             <strong data-online-count th:text="${onlineCount != null} ? ${onlineCount} : '0'">0</strong>
-            <span>online</span>
+            <span data-i18n="header.online">online</span>
         </span>
         <button type="button"
                 class="icon-btn icon-btn-notif"
                 data-notifications-open
+                data-i18n-aria="header.notifications"
+                data-i18n-title="header.notifications"
                 aria-label="Notifications"
                 title="Notifications"
                 aria-haspopup="dialog"
@@ -72,37 +75,38 @@
 
                 <div class="profile-dropdown-body">
                     <p>
-                        <span>Role</span>
+                        <span data-i18n="header.role">Role</span>
                         <strong th:text="${account.roleDisplay}">Role</strong>
                     </p>
                     <p>
-                        <span>School</span>
+                        <span data-i18n="header.school">School</span>
                         <strong th:text="${account.schoolName} ?: '—'">School</strong>
                     </p>
 
                     <!-- Teacher / Principal: classes they teach or manage -->
                     <p th:if="${account.role != null and (account.role.name() == 'TEACHER' or account.role.name() == 'PRINCIPAL')}">
-                        <span th:text="${account.role.name() == 'TEACHER'} ? 'Teaching' : 'Classes'">Teaching</span>
+                        <span th:if="${account.role.name() == 'TEACHER'}" data-i18n="header.teaching">Teaching</span>
+                        <span th:unless="${account.role.name() == 'TEACHER'}" data-i18n="header.classes">Classes</span>
                         <strong th:text="${account.classNames} ?: '—'">—</strong>
                     </p>
                     <p th:if="${account.role != null and account.role.name() == 'TEACHER' and account.room != null}">
-                        <span>Room</span>
+                        <span data-i18n="header.room">Room</span>
                         <strong th:text="${account.room}">Room</strong>
                     </p>
 
                     <!-- Student: grade + enrolled classes -->
                     <p th:if="${account.role != null and account.role.name() == 'STUDENT'}">
-                        <span>Grade</span>
+                        <span data-i18n="header.grade">Grade</span>
                         <strong th:text="${account.grade} ?: '—'">—</strong>
                     </p>
                     <p th:if="${account.role != null and account.role.name() == 'STUDENT'}">
-                        <span>Classes</span>
+                        <span data-i18n="header.classes">Classes</span>
                         <strong th:text="${account.classNames} ?: '—'">—</strong>
                     </p>
 
                     <!-- Staff -->
                     <p th:if="${account.role != null and account.role.name() == 'STAFF' and account.room != null}">
-                        <span>Room / desk</span>
+                        <span data-i18n="header.room">Room</span>
                         <strong th:text="${account.room}">—</strong>
                     </p>
                 </div>
@@ -110,10 +114,13 @@
                 <div class="profile-dropdown-actions">
                     <a class="btn btn-ghost btn-block"
                        sec:authorize="hasAuthority('USER_READ')"
-                       th:href="@{/admin/users/{id}(id=${account.uuid})}">View my profile</a>
-                    <a class="btn btn-ghost btn-block" th:href="@{/admin/dashboard}">View dashboard</a>
+                       th:href="@{/admin/users/{id}(id=${account.uuid})}"
+                       data-i18n="header.profile">View my profile</a>
+                    <a class="btn btn-ghost btn-block" th:href="@{/admin/dashboard}"
+                       data-i18n="header.dashboard">View dashboard</a>
                     <form th:action="@{/logout}" method="post">
-                        <button class="btn btn-danger-soft btn-block" type="submit">Logout</button>
+                        <button class="btn btn-danger-soft btn-block" type="submit"
+                                data-i18n="header.logout">Logout</button>
                     </form>
                 </div>
             </div>

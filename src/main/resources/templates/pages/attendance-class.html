@@ -40,6 +40,16 @@
         </label>
     </form>
 
+    <article class="panel-card chart-card" style="margin-bottom:16px">
+        <div class="page-intro compact">
+            <div>
+                <h3 class="section-title">Class attendance · 1 month</h3>
+                <p class="muted">Daily P / A / L trend for this class</p>
+            </div>
+        </div>
+        <canvas id="classAttendanceMonthChart"></canvas>
+    </article>
+
     <div class="table-wrap">
         <table class="data-table" id="class-students-table">
             <thead>
@@ -57,7 +67,8 @@
                 <td th:text="${s.email}">email</td>
                 <td>
                     <span class="role-badge"
-                          th:text="${attendanceByUser.containsKey(s.uuid)} ? ${attendanceByUser.get(s.uuid).status} : '—'">PRESENT</span>
+                          th:with="st=${attendanceByUser.containsKey(s.uuid) ? attendanceByUser.get(s.uuid).status : null}"
+                          th:text="${st == null ? '—' : (st.name() == 'PRESENT' ? 'P' : (st.name() == 'ABSENT' ? 'A' : (st.name() == 'LATE' ? 'L' : 'E')))}">P</span>
                 </td>
                 <td th:text="${attendanceByUser.containsKey(s.uuid) and attendanceByUser.get(s.uuid).remark != null}
                               ? ${attendanceByUser.get(s.uuid).remark} : '—'">—</td>
@@ -67,10 +78,14 @@
                         <input type="hidden" name="classUuid" th:value="${schoolClass.uuid}">
                         <input type="hidden" name="attendanceDate" th:value="${selectedDate}">
                         <select name="status">
-                            <option th:each="st : ${statuses}" th:value="${st}" th:text="${st}"
-                                    th:selected="${attendanceByUser.containsKey(s.uuid)
-                                        ? attendanceByUser.get(s.uuid).status == st
-                                        : st.name() == 'PRESENT'}">PRESENT</option>
+                            <option value="PRESENT"
+                                    th:selected="${!attendanceByUser.containsKey(s.uuid) or attendanceByUser.get(s.uuid).status.name() == 'PRESENT'}">P</option>
+                            <option value="ABSENT"
+                                    th:selected="${attendanceByUser.containsKey(s.uuid) and attendanceByUser.get(s.uuid).status.name() == 'ABSENT'}">A</option>
+                            <option value="LATE"
+                                    th:selected="${attendanceByUser.containsKey(s.uuid) and attendanceByUser.get(s.uuid).status.name() == 'LATE'}">L</option>
+                            <option value="EXCUSED"
+                                    th:selected="${attendanceByUser.containsKey(s.uuid) and attendanceByUser.get(s.uuid).status.name() == 'EXCUSED'}">E</option>
                         </select>
                         <button type="submit" class="btn btn-ghost btn-sm">Save</button>
                     </form>
@@ -82,6 +97,15 @@
             </tbody>
         </table>
     </div>
+
+    <script th:inline="javascript">
+        window.__classAttendanceCharts = {
+            labels: /*[[${classMonthLabels}]]*/ [],
+            present: /*[[${classMonthPresent}]]*/ [],
+            absent: /*[[${classMonthAbsent}]]*/ [],
+            late: /*[[${classMonthLate}]]*/ []
+        };
+    </script>
 </section>
 </body>
 </html>

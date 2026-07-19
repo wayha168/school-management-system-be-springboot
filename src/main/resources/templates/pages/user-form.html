@@ -100,6 +100,10 @@
                 <input name="room" placeholder="e.g. Room A-12"
                        th:value="${user != null} ? ${user.room} : ''">
             </label>
+            <label data-field-salary hidden>Salary
+                <input type="number" name="salary" min="0" step="0.01" placeholder="Monthly salary"
+                       th:value="${user != null and user.salary != null} ? ${user.salary} : ''">
+            </label>
 
             <label class="span-3" data-field-class hidden>Classes
                 <select name="classUuids" multiple size="5" data-class-select>

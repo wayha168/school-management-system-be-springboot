@@ -1,5 +1,9 @@
 package com.project.school_management.controller.view;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
@@ -15,8 +19,11 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
+import com.project.school_management.dto.schoolclass.SchoolClassResponse;
+import com.project.school_management.dto.score.ClassStudentGradeRow;
 import com.project.school_management.dto.score.StudentGpaResponse;
 import com.project.school_management.dto.user.DataUser;
+import com.project.school_management.dto.user.UserClassItem;
 import com.project.school_management.dto.user.UserResponse;
 import com.project.school_management.enums.RoleName;
 import com.project.school_management.exception.UserNotFound;
@@ -49,6 +56,7 @@ public class GradeViewController {
     @PreAuthorize("hasAuthority('SCORE_READ')")
     public String list(
             @RequestParam(required = false) Integer generation,
+            @RequestParam(required = false) UUID classUuid,
             Authentication authentication,
             Model model,
             RedirectAttributes ra) {
@@ -59,20 +67,55 @@ public class GradeViewController {
                 return "redirect:/admin/grades/" + account.getUuid()
                         + (generation != null ? "?generation=" + generation : "");
             }
-            Set<UUID> scoredInGeneration = generation == null
-                    ? Set.of()
-                    : new LinkedHashSet<>(scoreService.listStudentUuidsWithScores(generation));
-            List<UserResponse> students = userService.getAll().stream()
-                    .filter(u -> u.getRole() == RoleName.STUDENT)
-                    .filter(u -> generation == null
-                            || scoredInGeneration.contains(u.getUuid())
-                            || (u.getClasses() != null && u.getClasses().stream()
-                                    .anyMatch(c -> generation.equals(c.getGeneration()))))
-                    .toList();
-            model.addAttribute("students", students);
-            model.addAttribute("generations", gradeSessions());
+
+            List<Integer> sessions = gradeSessions();
+            List<SchoolClassResponse> classes = generation == null
+                    ? schoolClassService.getAll()
+                    : schoolClassService.getByGeneration(generation);
+
+            // Keep selected class only if it still appears for this session
+            final UUID selectedClass = classUuid != null
+                    && classes.stream().anyMatch(c -> classUuid.equals(c.getUuid()))
+                            ? classUuid
+                            : null;
+
+            List<ClassStudentGradeRow> studentRows = List.of();
+            SchoolClassResponse selectedClassInfo = null;
+            BigDecimal classAvgGpa = null;
+            BigDecimal classAvgPercent = null;
+            if (selectedClass != null) {
+                selectedClassInfo = classes.stream()
+                        .filter(c -> selectedClass.equals(c.getUuid()))
+                        .findFirst()
+                        .orElse(null);
+                studentRows = studentsInClass(selectedClass, generation);
+                if (!studentRows.isEmpty()) {
+                    BigDecimal gpaSum = BigDecimal.ZERO;
+                    BigDecimal pctSum = BigDecimal.ZERO;
+                    int counted = 0;
+                    for (ClassStudentGradeRow row : studentRows) {
+                        if (row.getTotalScores() > 0) {
+                            gpaSum = gpaSum.add(row.getGpa());
+                            pctSum = pctSum.add(row.getAveragePercent());
+                            counted++;
+                        }
+                    }
+                    if (counted > 0) {
+                        classAvgGpa = gpaSum.divide(BigDecimal.valueOf(counted), 2, RoundingMode.HALF_UP);
+                        classAvgPercent = pctSum.divide(BigDecimal.valueOf(counted), 2, RoundingMode.HALF_UP);
+                    }
+                }
+            }
+
+            model.addAttribute("classes", classes);
+            model.addAttribute("students", studentRows);
+            model.addAttribute("generations", sessions);
             model.addAttribute("terms", scoreService.listScoreTerms());
             model.addAttribute("selectedGeneration", generation);
+            model.addAttribute("selectedClassUuid", selectedClass);
+            model.addAttribute("selectedClass", selectedClassInfo);
+            model.addAttribute("classAvgGpa", classAvgGpa);
+            model.addAttribute("classAvgPercent", classAvgPercent);
             return "pages/grades";
         } catch (Exception ex) {
             ra.addFlashAttribute("error", "Unable to load grades");
@@ -86,17 +129,34 @@ public class GradeViewController {
             @PathVariable UUID studentUuid,
             @RequestParam(required = false) Integer generation,
             @RequestParam(required = false) String term,
+            @RequestParam(required = false) UUID classUuid,
             Authentication authentication,
             Model model,
             RedirectAttributes ra) {
         try {
             fillCommon(model, authentication, "grades", "Student grades");
+            DataUser account = (DataUser) model.getAttribute("account");
+            if (account != null && account.getRole() == RoleName.STUDENT
+                    && !account.getUuid().equals(studentUuid)) {
+                ra.addFlashAttribute("error", "You can only view your own grades");
+                return "redirect:/admin/grades/" + account.getUuid();
+            }
+
             StudentGpaResponse gpa = scoreService.getStudentGpa(studentUuid, generation, term);
             model.addAttribute("gpa", gpa);
             model.addAttribute("generations", studentGradeSessions(studentUuid));
             model.addAttribute("terms", scoreService.listScoreTermsForStudent(studentUuid));
             model.addAttribute("selectedGeneration", generation);
             model.addAttribute("selectedTerm", term);
+            model.addAttribute("selectedClassUuid", classUuid);
+            model.addAttribute("isStudentSelf",
+                    account != null && account.getRole() == RoleName.STUDENT);
+
+            if (classUuid != null && (account == null || account.getRole() != RoleName.STUDENT)) {
+                model.addAttribute("classStudents", studentsInClass(classUuid, generation));
+            } else {
+                model.addAttribute("classStudents", List.of());
+            }
             return "pages/grade-detail";
         } catch (Exception ex) {
             ra.addFlashAttribute("error", ex.getMessage());
@@ -104,7 +164,34 @@ public class GradeViewController {
         }
     }
 
-    /** All generations from classes + scores that need grade display. */
+    private List<ClassStudentGradeRow> studentsInClass(UUID classUuid, Integer generation) {
+        List<UserResponse> students = userService.getAll().stream()
+                .filter(u -> u.getRole() == RoleName.STUDENT)
+                .filter(u -> u.getClasses() != null
+                        && u.getClasses().stream().anyMatch(c -> classUuid.equals(c.getUuid())))
+                .sorted(Comparator.comparing(
+                        u -> u.getName() == null ? "" : u.getName(),
+                        String.CASE_INSENSITIVE_ORDER))
+                .toList();
+
+        List<ClassStudentGradeRow> rows = new ArrayList<>();
+        for (UserResponse student : students) {
+            StudentGpaResponse gpa = scoreService.getStudentGpa(student.getUuid(), generation, null);
+            rows.add(ClassStudentGradeRow.builder()
+                    .studentUuid(student.getUuid())
+                    .studentName(student.getName())
+                    .studentEmail(student.getEmail())
+                    .grade(student.getGrade())
+                    .gpa(gpa.getGpa())
+                    .averagePercent(gpa.getAveragePercent())
+                    .letterGrade(gpa.getLetterGrade())
+                    .totalScores(gpa.getTotalScores())
+                    .build());
+        }
+        return rows;
+    }
+
+    /** Sessions = class generations + score generations. */
     private List<Integer> gradeSessions() {
         Set<Integer> gens = new LinkedHashSet<>(schoolClassService.listGenerations());
         gens.addAll(scoreService.listScoreGenerations());
@@ -116,7 +203,7 @@ public class GradeViewController {
         UserResponse student = userService.getById(studentUuid);
         if (student.getClasses() != null) {
             student.getClasses().stream()
-                    .map(c -> c.getGeneration())
+                    .map(UserClassItem::getGeneration)
                     .filter(g -> g != null)
                     .forEach(gens::add);
         }

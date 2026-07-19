@@ -7,17 +7,91 @@
         return Array.from((root || document).querySelectorAll(sel));
     }
 
-    // Table search
+    function rowName(row) {
+        return (row.getAttribute("data-name") || row.getAttribute("data-search") || "").trim();
+    }
+
+    function rowLetter(row) {
+        const name = rowName(row);
+        if (!name) return "#";
+        const ch = name.charAt(0).toUpperCase();
+        return /[A-Z]/.test(ch) ? ch : "#";
+    }
+
+    function applyTableFilters(table) {
+        if (!table) return;
+        const letter = (table.getAttribute("data-alpha-letter") || "ALL").toUpperCase();
+        const searchId = table.id;
+        const input = searchId
+            ? qs(`[data-table-search="${searchId}"]`)
+            : null;
+        const q = input ? input.value.trim().toLowerCase() : "";
+        qsa("tbody tr[data-search]", table).forEach((row) => {
+            const hay = (row.getAttribute("data-search") || "").toLowerCase();
+            const matchSearch = q === "" || hay.includes(q);
+            const matchLetter = letter === "ALL" || rowLetter(row) === letter;
+            row.hidden = !(matchSearch && matchLetter);
+        });
+    }
+
+    // Table search (+ alphabet filter awareness)
     qsa("[data-table-search]").forEach((input) => {
         const table = document.getElementById(input.getAttribute("data-table-search"));
         if (!table) return;
-        input.addEventListener("input", () => {
-            const q = input.value.trim().toLowerCase();
-            qsa("tbody tr[data-search]", table).forEach((row) => {
-                const hay = (row.getAttribute("data-search") || "").toLowerCase();
-                row.hidden = q !== "" && !hay.includes(q);
-            });
+        input.addEventListener("input", () => applyTableFilters(table));
+    });
+
+    // A–Z name filter bars
+    qsa("[data-alpha-filter]").forEach((bar) => {
+        const table = document.getElementById(bar.getAttribute("data-alpha-filter"));
+        if (!table) return;
+
+        const letters = new Set();
+        qsa("tbody tr[data-search]", table).forEach((row) => letters.add(rowLetter(row)));
+
+        const frag = document.createDocumentFragment();
+        const allBtn = document.createElement("button");
+        allBtn.type = "button";
+        allBtn.className = "alpha-btn is-active";
+        allBtn.setAttribute("data-alpha-letter", "ALL");
+        allBtn.setAttribute("data-i18n", "filter.all");
+        allBtn.textContent = (window.SmI18n && window.SmI18n.t("filter.all")) || "All";
+        frag.appendChild(allBtn);
+
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("").forEach((letter) => {
+            if (!letters.has(letter)) return;
+            const btn = document.createElement("button");
+            btn.type = "button";
+            btn.className = "alpha-btn";
+            btn.setAttribute("data-alpha-letter", letter);
+            btn.textContent = letter;
+            frag.appendChild(btn);
         });
+        if (letters.has("#")) {
+            const btn = document.createElement("button");
+            btn.type = "button";
+            btn.className = "alpha-btn";
+            btn.setAttribute("data-alpha-letter", "#");
+            btn.textContent = "#";
+            frag.appendChild(btn);
+        }
+        bar.appendChild(frag);
+        bar.setAttribute("data-i18n-aria", "filter.byLetter");
+        if (!bar.getAttribute("aria-label")) {
+            bar.setAttribute("aria-label", (window.SmI18n && window.SmI18n.t("filter.byLetter")) || "Filter by letter");
+        }
+
+        bar.addEventListener("click", (e) => {
+            const btn = e.target.closest("[data-alpha-letter]");
+            if (!btn || !bar.contains(btn)) return;
+            qsa(".alpha-btn", bar).forEach((b) => b.classList.toggle("is-active", b === btn));
+            table.setAttribute("data-alpha-letter", btn.getAttribute("data-alpha-letter") || "ALL");
+            applyTableFilters(table);
+        });
+
+        table.setAttribute("data-alpha-letter", "ALL");
+        applyTableFilters(table);
+        if (window.SmI18n) window.SmI18n.apply();
     });
 
     // Confirm modal (delete only)
@@ -71,6 +145,7 @@
         const roleName = roleNameOf(form);
         const gradeField = qs("[data-field-grade]", form);
         const roomField = qs("[data-field-room]", form);
+        const salaryField = qs("[data-field-salary]", form);
         const classField = qs("[data-field-class]", form);
         const gradeSelect = qs("[data-grade-select]", form);
         const schoolSelect = qs("[data-school-select]", form);
@@ -79,9 +154,15 @@
 
         const isStudent = roleName === "STUDENT";
         const isTeacher = roleName === "TEACHER";
+        const hasSalary = roleName === "TEACHER"
+            || roleName === "STAFF"
+            || roleName === "PRINCIPAL"
+            || roleName === "ADMIN"
+            || roleName === "SUPERADMIN";
 
         if (gradeField) gradeField.hidden = !isStudent;
         if (roomField) roomField.hidden = !isTeacher;
+        if (salaryField) salaryField.hidden = !hasSalary;
 
         const gradeValue = gradeSelect ? gradeSelect.value : "";
         const schoolValue = schoolSelect ? schoolSelect.value : "";
@@ -174,9 +255,7 @@
                 searchInput.value = "";
                 const table = document.getElementById(searchTableId);
                 if (table) {
-                    qsa("tbody tr[data-search]", table).forEach((row) => {
-                        row.hidden = false;
-                    });
+                    applyTableFilters(table);
                 }
             }
 
@@ -184,6 +263,9 @@
                 const forTarget = action.getAttribute("data-view-action");
                 action.hidden = forTarget !== target;
             });
+
+            const tabInput = qs("[data-attendance-tab]", root);
+            if (tabInput) tabInput.value = target;
 
             try {
                 const url = new URL(window.location.href);

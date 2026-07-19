@@ -8,25 +8,40 @@
             <h2 class="page-heading">Student grades</h2>
             <p class="muted" th:text="${gpa.studentName + ' · ' + gpa.studentEmail}">Student</p>
             <div class="page-toolbar-actions row">
-                <a class="btn btn-ghost" th:href="@{/admin/grades}">Back</a>
+                <a class="btn btn-ghost"
+                   th:if="${isStudentSelf}"
+                   th:href="@{/admin/dashboard}">Back</a>
+                <a class="btn btn-ghost"
+                   th:unless="${isStudentSelf}"
+                   th:href="@{/admin/grades(generation=${selectedGeneration}, classUuid=${selectedClassUuid})}">Back to class</a>
             </div>
         </div>
     </div>
 
     <div class="page-toolbar-actions" style="margin-bottom:14px">
         <form class="filter-bar" method="get" th:action="@{/admin/grades/{id}(id=${gpa.studentUuid})}">
-            <select name="generation" onchange="this.form.submit()">
-                <option value="">All sessions (generation)</option>
+            <input type="hidden" name="classUuid" th:value="${selectedClassUuid}">
+            <select name="generation" onchange="this.form.submit()" aria-label="Session">
+                <option value="">All sessions</option>
                 <option th:each="g : ${generations}" th:value="${g}"
                         th:selected="${selectedGeneration != null and selectedGeneration == g}"
-                        th:text="${'G' + g}">G9</option>
+                        th:text="${'G' + g + ' session'}">G9 session</option>
             </select>
-            <select name="term" onchange="this.form.submit()">
+            <select name="term" onchange="this.form.submit()" aria-label="Term">
                 <option value="">All terms</option>
                 <option th:each="t : ${terms}" th:value="${t}"
                         th:selected="${selectedTerm != null and selectedTerm == t}"
                         th:text="${t}">Term 1</option>
             </select>
+            <label th:if="${!#lists.isEmpty(classStudents)}">Student
+                <select name="studentSwitch" aria-label="Switch student"
+                        th:attr="data-generation=${selectedGeneration}, data-term=${selectedTerm}, data-class=${selectedClassUuid}"
+                        onchange="if(!this.value)return; var g=this.getAttribute('data-generation'); var t=this.getAttribute('data-term'); var c=this.getAttribute('data-class'); var q=[]; if(g)q.push('generation='+encodeURIComponent(g)); if(t)q.push('term='+encodeURIComponent(t)); if(c)q.push('classUuid='+encodeURIComponent(c)); location.href='/admin/grades/'+this.value+(q.length?'?'+q.join('&'):'');">
+                    <option th:each="s : ${classStudents}" th:value="${s.studentUuid}"
+                            th:selected="${s.studentUuid == gpa.studentUuid}"
+                            th:text="${s.studentName}">Student</option>
+                </select>
+            </label>
             <button type="submit" class="btn btn-ghost">Apply</button>
         </form>
     </div>

@@ -1,14 +1,19 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org"
+<html xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security"
       th:replace="~{layout :: layout(~{::section})}">
 <body>
 <section th:fragment="section">
     <div class="page-intro">
         <div>
-            <h2 class="section-title">Dashboard Overview</h2>
-            <p class="muted">Live summary of schools, people, and access controls.</p>
+            <h2 class="section-title" data-i18n="dash.title">Dashboard Overview</h2>
+            <p class="muted" data-i18n="dash.subtitle">GPA, top students, attendance &amp; term performance.</p>
         </div>
-        <span class="live-badge"><span class="live-dot"></span> Live</span>
+        <div class="page-toolbar-actions row">
+            <a class="btn btn-dark" th:if="${canAssignAttendance}"
+               th:href="@{/admin/attendance/mark}" sec:authorize="hasAuthority('ATTENDANCE_WRITE')"
+               data-i18n="dash.assignAttendance">Assign attendance</a>
+            <span class="live-badge"><span class="live-dot"></span> <span data-i18n="common.live">Live</span></span>
+        </div>
     </div>
 
     <div class="summary-grid">
@@ -17,7 +22,7 @@
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 21v-6h6v6"/></svg>
             </div>
             <div>
-                <span class="summary-label">Schools</span>
+                <span class="summary-label" data-i18n="dash.schools">Schools</span>
                 <p class="summary-value" th:text="${schoolCount}">0</p>
             </div>
         </article>
@@ -26,26 +31,8 @@
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
             </div>
             <div>
-                <span class="summary-label">Classes</span>
+                <span class="summary-label" data-i18n="dash.classes">Classes</span>
                 <p class="summary-value" th:text="${classCount}">0</p>
-            </div>
-        </article>
-        <article class="summary-card">
-            <div class="summary-icon tone-purple">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-            </div>
-            <div>
-                <span class="summary-label">Registered Users</span>
-                <p class="summary-value" th:text="${userCount}">0</p>
-            </div>
-        </article>
-        <article class="summary-card">
-            <div class="summary-icon tone-teal">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
-            </div>
-            <div>
-                <span class="summary-label">Teachers</span>
-                <p class="summary-value" th:text="${teacherCount}">0</p>
             </div>
         </article>
         <article class="summary-card">
@@ -53,17 +40,35 @@
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>
             </div>
             <div>
-                <span class="summary-label">Students</span>
+                <span class="summary-label" data-i18n="dash.students">Students</span>
                 <p class="summary-value" th:text="${studentCount}">0</p>
             </div>
         </article>
         <article class="summary-card">
-            <div class="summary-icon tone-slate">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg>
+            <div class="summary-icon tone-teal">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-4"/></svg>
             </div>
             <div>
-                <span class="summary-label">Staff</span>
-                <p class="summary-value" th:text="${staffCount}">0</p>
+                <span class="summary-label" data-i18n="dash.avgGpa">Avg GPA</span>
+                <p class="summary-value" th:text="${gpaSummary != null ? gpaSummary.averageGpa : '0.00'}">0.00</p>
+            </div>
+        </article>
+        <article class="summary-card">
+            <div class="summary-icon tone-purple">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+            </div>
+            <div>
+                <span class="summary-label" data-i18n="dash.avgPercent">Avg score %</span>
+                <p class="summary-value" th:text="${gpaSummary != null ? gpaSummary.averagePercent : '0.00'}">0.00</p>
+            </div>
+        </article>
+        <article class="summary-card">
+            <div class="summary-icon tone-slate">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+            </div>
+            <div>
+                <span class="summary-label" data-i18n="dash.withScores">Students with scores</span>
+                <p class="summary-value" th:text="${gpaSummary != null ? gpaSummary.studentsWithScores : 0}">0</p>
             </div>
         </article>
     </div>
@@ -72,8 +77,29 @@
         <article class="panel-card chart-card">
             <div class="page-intro compact">
                 <div>
-                    <h3 class="section-title">People statistics</h3>
-                    <p class="muted">Users, teachers, students and staff</p>
+                    <h3 class="section-title" data-i18n="dash.attendanceMonth">Attendance · 1 month</h3>
+                    <p class="muted" data-i18n="dash.attendanceMonthHint">Present · Absent · Late / Excused</p>
+                </div>
+            </div>
+            <canvas id="attendanceMonthChart"></canvas>
+        </article>
+        <article class="panel-card chart-card">
+            <div class="page-intro compact">
+                <div>
+                    <h3 class="section-title" data-i18n="dash.terms">Terms · Midterm / Final</h3>
+                    <p class="muted" data-i18n="dash.termsHint">Average percent by term</p>
+                </div>
+            </div>
+            <canvas id="termChart"></canvas>
+        </article>
+    </div>
+
+    <div class="chart-grid">
+        <article class="panel-card chart-card">
+            <div class="page-intro compact">
+                <div>
+                    <h3 class="section-title" data-i18n="dash.people">People statistics</h3>
+                    <p class="muted" data-i18n="dash.peopleHint">Users, teachers, students and staff</p>
                 </div>
             </div>
             <canvas id="peopleChart"></canvas>
@@ -81,11 +107,80 @@
         <article class="panel-card chart-card">
             <div class="page-intro compact">
                 <div>
-                    <h3 class="section-title">Students vs teachers</h3>
-                    <p class="muted">Quick role comparison</p>
+                    <h3 class="section-title" data-i18n="dash.roles">Students vs teachers</h3>
+                    <p class="muted" data-i18n="dash.rolesHint">Quick role comparison</p>
                 </div>
             </div>
             <canvas id="roleChart"></canvas>
+        </article>
+    </div>
+
+    <div class="chart-grid">
+        <article class="panel-card">
+            <div class="page-intro compact">
+                <div>
+                    <h3 class="section-title" data-i18n="dash.topClass">Top 1 · by class</h3>
+                    <p class="muted" data-i18n="dash.topClassHint">Highest GPA in each class</p>
+                </div>
+            </div>
+            <div class="table-wrap">
+                <table class="data-table">
+                    <thead>
+                    <tr>
+                        <th data-i18n="dash.class">Class</th>
+                        <th data-i18n="dash.student">Student</th>
+                        <th data-i18n="dash.gpa">GPA</th>
+                        <th data-i18n="dash.percent">%</th>
+                        <th data-i18n="dash.letter">Letter</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <tr th:if="${#lists.isEmpty(topByClass)}">
+                        <td colspan="5" class="muted" data-i18n="dash.noScores">No score data yet.</td>
+                    </tr>
+                    <tr th:each="row : ${topByClass}">
+                        <td th:text="${row.groupLabel}">Class</td>
+                        <td th:text="${row.studentName}">Student</td>
+                        <td th:text="${row.gpa}">0.00</td>
+                        <td th:text="${row.averagePercent}">0.00</td>
+                        <td th:text="${row.letterGrade}">A</td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+        </article>
+        <article class="panel-card">
+            <div class="page-intro compact">
+                <div>
+                    <h3 class="section-title" data-i18n="dash.topGrade">Top 1 · by grade</h3>
+                    <p class="muted" data-i18n="dash.topGradeHint">Highest GPA in each grade</p>
+                </div>
+            </div>
+            <div class="table-wrap">
+                <table class="data-table">
+                    <thead>
+                    <tr>
+                        <th data-i18n="dash.grade">Grade</th>
+                        <th data-i18n="dash.student">Student</th>
+                        <th data-i18n="dash.gpa">GPA</th>
+                        <th data-i18n="dash.percent">%</th>
+                        <th data-i18n="dash.letter">Letter</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <tr th:if="${#lists.isEmpty(topByGrade)}">
+                        <td colspan="5" class="muted" data-i18n="dash.noScores">No score data yet.</td>
+                    </tr>
+                    <tr th:each="row : ${topByGrade}">
+                        <td th:text="${row.groupLabel}">Grade</td>
+                        <td th:text="${row.studentName}">Student</td>
+                        <td th:text="${row.gpa}">0.00</td>
+                        <td th:text="${row.averagePercent}">0.00</td>
+                        <td th:text="${row.letterGrade}">A</td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
         </article>
     </div>
 
@@ -94,7 +189,13 @@
             labels: /*[[${chartLabels}]]*/ [],
             values: /*[[${chartValues}]]*/ [],
             teachers: /*[[${teacherCount}]]*/ 0,
-            students: /*[[${studentCount}]]*/ 0
+            students: /*[[${studentCount}]]*/ 0,
+            termLabels: /*[[${termChartLabels}]]*/ [],
+            termValues: /*[[${termChartValues}]]*/ [],
+            attendanceLabels: /*[[${attendanceMonthLabels}]]*/ [],
+            attendancePresent: /*[[${attendancePresent}]]*/ [],
+            attendanceAbsent: /*[[${attendanceAbsent}]]*/ [],
+            attendanceLate: /*[[${attendanceLate}]]*/ []
         };
     </script>
 </section>

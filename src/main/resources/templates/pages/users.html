@@ -7,26 +7,28 @@
     <div class="page-toolbar">
         <div class="page-toolbar-main">
             <div>
-                <h2 class="page-heading">Users</h2>
-                <p class="muted">Manage platform users · real-time online via WebSocket</p>
+                <h2 class="page-heading" data-i18n="users.title">Users</h2>
+                <p class="muted" data-i18n="users.subtitle">Manage platform users · real-time online via WebSocket</p>
             </div>
             <div class="page-toolbar-actions">
                 <div class="page-toolbar-left">
                     <input type="search"
                            class="search-input"
                            placeholder="Search name or email..."
+                           data-i18n-placeholder="search.nameEmail"
                            data-table-search="users-table"
+                           data-i18n-aria="users.title"
                            aria-label="Search users">
                     <form class="filter-bar" method="get" th:action="@{/admin/users}">
                         <select name="role" onchange="this.form.submit()" aria-label="Filter by role">
-                            <option value="">All roles</option>
+                            <option value="" data-i18n="filter.allRoles">All roles</option>
                             <option th:each="r : ${roleFilters}"
                                     th:value="${r}"
                                     th:selected="${selectedRole != null and selectedRole == r}"
                                     th:text="${T(com.project.school_management.dto.user.DataUser).displayRole(r)}">Teacher</option>
                         </select>
                         <select name="generation" onchange="this.form.submit()" aria-label="Filter by generation">
-                            <option value="">All generations</option>
+                            <option value="" data-i18n="filter.allGenerations">All generations</option>
                             <option th:each="g : ${generations}"
                                     th:value="${g}"
                                     th:selected="${selectedGeneration != null and selectedGeneration == g}"
@@ -37,36 +39,41 @@
                 <div class="page-toolbar-right">
                     <a class="btn btn-dark"
                        sec:authorize="hasAuthority('USER_WRITE')"
-                       th:href="@{/admin/users/new}">Add Users</a>
+                       th:href="@{/admin/users/new}"
+                       data-i18n="users.add">Add Users</a>
                 </div>
             </div>
         </div>
     </div>
 
+    <nav class="alpha-filter" data-alpha-filter="users-table" role="toolbar"></nav>
+
     <div class="table-wrap">
         <table class="data-table" id="users-table">
             <thead>
             <tr>
-                <th>ID</th>
-                <th>Photo</th>
-                <th>Name</th>
-                <th>Email</th>
-                <th>Role</th>
-                <th>Grade</th>
-                <th>Room / Class</th>
-                <th>Online</th>
-                <th>Status</th>
-                <th>Actions</th>
+                <th data-i18n="common.id">ID</th>
+                <th data-i18n="common.photo">Photo</th>
+                <th data-i18n="common.name">Name</th>
+                <th data-i18n="common.email">Email</th>
+                <th data-i18n="users.role">Role</th>
+                <th data-i18n="users.grade">Grade</th>
+                <th data-i18n="users.roomClass">Room / Class</th>
+                <th data-i18n="users.salary">Salary</th>
+                <th data-i18n="users.online">Online</th>
+                <th data-i18n="common.status">Status</th>
+                <th data-i18n="common.actions">Actions</th>
             </tr>
             </thead>
             <tbody>
             <tr th:each="user : ${users}"
                 th:attr="data-search=${user.name + ' ' + user.email + ' ' + user.uuid},
+                         data-name=${user.name},
                          data-user-email=${user.email}">
                 <td>
                     <code class="id-chip"
                           th:title="${user.uuid}"
-                          th:text="${#strings.substring(user.uuid.toString(),0,8)}">abcd1234</code>
+                          th:text="${#strings.substring(user.uuid.toString(),0,3) + '...'}">abc...</code>
                 </td>
                 <td>
                     <img th:if="${user.hasProfileImage}"
@@ -92,6 +99,7 @@
                           th:text="${user.classNames} ?: '—'">Class</span>
                     <span th:if="${user.role == null or (user.role.name() != 'TEACHER' and user.role.name() != 'STUDENT')}">—</span>
                 </td>
+                <td th:text="${user.salary != null} ? ${user.salary} : '—'">—</td>
                 <td>
                     <span class="online-status"
                           th:classappend="${onlineEmails != null and #sets.contains(onlineEmails, user.email)} ? ' online' : ' offline'"
@@ -102,7 +110,7 @@
                               th:text="${onlineEmails != null and #sets.contains(onlineEmails, user.email)} ? 'Online' : 'Offline'">Offline</span>
                     </span>
                 </td>
-                <td><span class="status-text status-active">Active</span></td>
+                <td><span class="status-text status-active" data-i18n="users.active">Active</span></td>
                 <td>
                     <div class="action-btns">
                         <a class="icon-action" title="View" th:href="@{/admin/users/{id}(id=${user.uuid})}">
@@ -126,7 +134,7 @@
                 </td>
             </tr>
             <tr th:if="${#lists.isEmpty(users)}">
-                <td colspan="10">No users found.</td>
+                <td colspan="11" data-i18n="users.empty">No users found.</td>
             </tr>
             </tbody>
         </table>

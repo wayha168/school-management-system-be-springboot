@@ -1,7 +1,9 @@
 package com.project.school_management.service.user;
 
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
@@ -21,6 +23,7 @@ import com.project.school_management.entities.Role;
 import com.project.school_management.entities.SchoolClass;
 import com.project.school_management.entities.SchoolMag;
 import com.project.school_management.entities.User;
+import com.project.school_management.enums.RoleName;
 import com.project.school_management.exception.ExceptionNotFound;
 import com.project.school_management.exception.UserNotFound;
 import com.project.school_management.repository.RoleRepository;
@@ -93,6 +96,7 @@ public class UserServiceImpl implements UserService {
         }
         user.setGrade(grade);
         user.setRoom(blankToNull(request.getRoom()));
+        user.setSalary(salaryForRole(user.getRole() != null ? user.getRole().getName() : null, request.getSalary()));
         applyProfileImage(user, profileImage, false);
         User saved = userRepository.save(user);
         return UserResponse.from(findUser(saved.getUuid()));
@@ -116,6 +120,9 @@ public class UserServiceImpl implements UserService {
                 .orElseGet(userRepository::findAllDetailed)
                 .stream()
                 .map(UserResponse::from)
+                .sorted(java.util.Comparator.comparing(
+                        u -> u.getName() == null ? "" : u.getName(),
+                        String.CASE_INSENSITIVE_ORDER))
                 .toList();
     }
 
@@ -157,6 +164,7 @@ public class UserServiceImpl implements UserService {
         }
         user.setGrade(grade);
         user.setRoom(blankToNull(request.getRoom()));
+        user.setSalary(salaryForRole(user.getRole() != null ? user.getRole().getName() : null, request.getSalary()));
         applyProfileImage(user, profileImage, true);
         userRepository.save(user);
         return UserResponse.from(findUser(id));
@@ -267,6 +275,26 @@ public class UserServiceImpl implements UserService {
                     .orElseThrow(() -> new ExceptionNotFound("Class not found: " + classUuid)));
         }
         return classes;
+    }
+
+    private static final Set<RoleName> SALARY_ROLES = EnumSet.of(
+            RoleName.TEACHER,
+            RoleName.STAFF,
+            RoleName.PRINCIPAL,
+            RoleName.ADMIN,
+            RoleName.SUPERADMIN);
+
+    private static BigDecimal salaryForRole(RoleName role, BigDecimal salary) {
+        if (role == null || !SALARY_ROLES.contains(role)) {
+            return null;
+        }
+        if (salary == null) {
+            return null;
+        }
+        if (salary.compareTo(BigDecimal.ZERO) < 0) {
+            throw new IllegalArgumentException("Salary cannot be negative");
+        }
+        return salary;
     }
 
     private static String blankToNull(String value) {

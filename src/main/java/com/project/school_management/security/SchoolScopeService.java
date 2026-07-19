@@ -15,10 +15,6 @@ import com.project.school_management.enums.RoleName;
 import com.project.school_management.exception.UserNotFound;
 import com.project.school_management.repository.UserRepository;
 
-/**
- * Restricts school-bound roles (e.g. TEACHER) to their own school.
- * SUPERADMIN / ADMIN and anonymous public callers are not school-scoped.
- */
 @Service
 public class SchoolScopeService {
 

@@ -1,5 +1,7 @@
 package com.project.school_management.dto.schoolclass;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 import jakarta.validation.constraints.NotBlank;
@@ -25,4 +27,7 @@ public class SchoolClassRequest {
 
     @NotNull
     private UUID schoolUuid;
+
+    /** Subjects taught in this class (ordered). */
+    private List<String> subjects = new ArrayList<>();
 }

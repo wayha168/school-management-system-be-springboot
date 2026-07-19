@@ -6,7 +6,21 @@
     <title th:text="${pageTitle} + ' | School Management'">School Management</title>
     <link rel="icon" type="image/svg+xml" th:href="@{/favicon.svg}">
     <link rel="shortcut icon" th:href="@{/favicon.svg}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Khmer&family=Moul&family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
     <link rel="stylesheet" th:href="@{/css/app.css}">
+    <script>
+        (function () {
+            try {
+                var t = localStorage.getItem('sm-theme') === 'dark' ? 'dark' : 'light';
+                var l = localStorage.getItem('sm-lang') === 'km' ? 'km' : 'en';
+                document.documentElement.setAttribute('data-theme', t);
+                document.documentElement.setAttribute('data-lang', l);
+                document.documentElement.lang = l;
+            } catch (e) {}
+        })();
+    </script>
 </head>
 <body class="admin-body"
       th:attr="data-flash-success=${success}, data-flash-error=${error}">
@@ -27,8 +41,8 @@
         </div>
         <p id="confirm-message" class="confirm-text">Are you sure?</p>
         <form id="confirm-form" method="post" th:action="@{/admin/dashboard}" class="modal-actions">
-            <button type="button" class="btn btn-ghost" data-confirm-close>Cancel</button>
-            <button type="submit" class="btn btn-danger-soft">Confirm</button>
+            <button type="button" class="btn btn-ghost" data-confirm-close data-i18n="common.cancel">Cancel</button>
+            <button type="submit" class="btn btn-danger-soft" data-i18n="common.confirm">Confirm</button>
         </form>
     </div>
 </div>
@@ -44,11 +58,11 @@
        aria-labelledby="notif-title">
     <div class="notif-drawer-head">
         <div>
-            <h2 id="notif-title">Notifications</h2>
-            <p class="muted">Users, classes &amp; school alerts</p>
+            <h2 id="notif-title" data-i18n="notif.title">Notifications</h2>
+            <p class="muted" data-i18n="notif.subtitle">Users, classes &amp; school alerts</p>
         </div>
         <div class="notif-drawer-actions">
-            <button type="button" class="notif-link-btn" data-notif-mark-all>Mark all read</button>
+            <button type="button" class="notif-link-btn" data-notif-mark-all data-i18n="notif.markAll">Mark all read</button>
             <button type="button" class="icon-btn" data-notifications-close aria-label="Close notifications">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M18 6L6 18M6 6l12 12"/>
@@ -58,15 +72,15 @@
     </div>
     <div class="notif-filters" role="tablist">
         <button type="button" class="notif-filter is-active" data-notif-filter="unread" role="tab" aria-selected="true">
-            <span class="notif-dot unread"></span> Unread
+            <span class="notif-dot unread"></span> <span data-i18n="notif.unread">Unread</span>
         </button>
         <button type="button" class="notif-filter" data-notif-filter="read" role="tab" aria-selected="false">
-            <span class="notif-dot read"></span> Read
+            <span class="notif-dot read"></span> <span data-i18n="notif.read">Read</span>
         </button>
     </div>
     <div class="notif-list" data-notif-list></div>
     <div class="notif-drawer-foot">
-        <button type="button" class="notif-link-btn" data-notif-view-all>View all notifications</button>
+        <button type="button" class="notif-link-btn" data-notif-view-all data-i18n="notif.viewAll">View all notifications</button>
     </div>
 </aside>
 
@@ -74,6 +88,7 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/stompjs@2.3.3/lib/stomp.min.js"></script>
+<script th:src="@{/js/prefs.js}"></script>
 <script th:src="@{/js/header-profile.js}"></script>
 <script th:src="@{/js/notifications.js}"></script>
 <script th:src="@{/js/toast.js}"></script>

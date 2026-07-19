@@ -1,9 +1,14 @@
 package com.project.school_management.controller.view;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -28,7 +33,10 @@ import com.project.school_management.dto.school.SchoolImage;
 import com.project.school_management.dto.school.SchoolRequest;
 import com.project.school_management.dto.schoolclass.SchoolClassRequest;
 import com.project.school_management.dto.schoolclass.SchoolClassResponse;
+import com.project.school_management.dto.score.ScoreBatchRequest;
+import com.project.school_management.dto.score.ScoreMarkItem;
 import com.project.school_management.dto.score.ScoreRequest;
+import com.project.school_management.dto.score.ScoreResponse;
 import com.project.school_management.dto.user.DataUser;
 import com.project.school_management.dto.user.UserRequest;
 import com.project.school_management.dto.user.UserResponse;
@@ -39,6 +47,9 @@ import com.project.school_management.exception.ErrorRuntime;
 import com.project.school_management.exception.UserNotFound;
 import com.project.school_management.repository.UserRepository;
 import com.project.school_management.security.SchoolScopeService;
+import com.project.school_management.dto.dashboard.ChartSeries;
+import com.project.school_management.dto.dashboard.GpaSummaryStats;
+import com.project.school_management.service.attendance.AttendanceService;
 import com.project.school_management.service.permission.PermissionService;
 import com.project.school_management.service.presence.PresenceTracker;
 import com.project.school_management.service.role.RoleService;
@@ -60,6 +71,7 @@ public class AdminViewController {
     private final PresenceTracker presenceTracker;
     private final SchoolScopeService schoolScopeService;
     private final ScoreService scoreService;
+    private final AttendanceService attendanceService;
 
     public AdminViewController(
             SchoolService schoolService,
@@ -70,7 +82,8 @@ public class AdminViewController {
             UserRepository userRepository,
             PresenceTracker presenceTracker,
             SchoolScopeService schoolScopeService,
-            ScoreService scoreService) {
+            ScoreService scoreService,
+            AttendanceService attendanceService) {
         this.schoolService = schoolService;
         this.userService = userService;
         this.schoolClassService = schoolClassService;
@@ -80,6 +93,7 @@ public class AdminViewController {
         this.presenceTracker = presenceTracker;
         this.schoolScopeService = schoolScopeService;
         this.scoreService = scoreService;
+        this.attendanceService = attendanceService;
     }
 
     @GetMapping({"/", "/dashboard"})
@@ -115,6 +129,25 @@ public class AdminViewController {
                             model.getAttribute("staffCount"),
                             model.getAttribute("classCount"),
                             model.getAttribute("schoolCount")));
+
+            GpaSummaryStats gpaSummary = scoreService.gpaSummary();
+            ChartSeries termChart = scoreService.termScoreChart();
+            ChartSeries attendanceMonth = attendanceService.lastMonthChart(30);
+            model.addAttribute("gpaSummary", gpaSummary);
+            model.addAttribute("topByClass", scoreService.topStudentsByClass());
+            model.addAttribute("topByGrade", scoreService.topStudentsByGrade());
+            model.addAttribute("termChartLabels", termChart.getLabels());
+            model.addAttribute("termChartValues", termChart.getValues());
+            model.addAttribute("attendanceMonthLabels", attendanceMonth.getLabels());
+            model.addAttribute("attendancePresent", attendanceMonth.getPresent());
+            model.addAttribute("attendanceAbsent", attendanceMonth.getAbsent());
+            model.addAttribute("attendanceLate", attendanceMonth.getLate());
+
+            DataUser account = (DataUser) model.getAttribute("account");
+            boolean canAssignAttendance = account != null
+                    && account.getPermissions() != null
+                    && account.getPermissions().contains("ATTENDANCE_WRITE");
+            model.addAttribute("canAssignAttendance", canAssignAttendance);
             return "pages/dashboard";
         } catch (UserNotFound | ErrorRuntime ex) {
             redirectAttributes.addFlashAttribute("error", ex.getMessage());
@@ -347,6 +380,7 @@ public class AdminViewController {
             @RequestParam(required = false) List<UUID> classUuids,
             @RequestParam(required = false) String grade,
             @RequestParam(required = false) String room,
+            @RequestParam(required = false) BigDecimal salary,
             @RequestParam(required = false) MultipartFile profileImage,
             RedirectAttributes ra) {
         try {
@@ -359,6 +393,7 @@ public class AdminViewController {
             request.setClassUuids(classUuids);
             request.setGrade(grade);
             request.setRoom(room);
+            request.setSalary(salary);
             userService.create(request, profileImage);
             ra.addFlashAttribute("success", "User created");
         } catch (RuntimeException ex) {
@@ -381,6 +416,7 @@ public class AdminViewController {
             @RequestParam(required = false) List<UUID> classUuids,
             @RequestParam(required = false) String grade,
             @RequestParam(required = false) String room,
+            @RequestParam(required = false) BigDecimal salary,
             @RequestParam(required = false) MultipartFile profileImage,
             RedirectAttributes ra) {
         try {
@@ -393,6 +429,7 @@ public class AdminViewController {
             request.setClassUuids(classUuids);
             request.setGrade(grade);
             request.setRoom(room);
+            request.setSalary(salary);
             userService.update(id, request, profileImage);
             ra.addFlashAttribute("success", "User updated");
             return "redirect:/admin/users/" + id;
@@ -494,6 +531,7 @@ public class AdminViewController {
             @RequestParam Integer generation,
             @RequestParam(required = false) Integer academicYear,
             @RequestParam UUID schoolUuid,
+            @RequestParam(required = false) List<String> subjects,
             RedirectAttributes ra) {
         try {
             SchoolClassRequest request = new SchoolClassRequest();
@@ -502,6 +540,7 @@ public class AdminViewController {
             request.setGeneration(generation);
             request.setAcademicYear(academicYear);
             request.setSchoolUuid(schoolUuid);
+            request.setSubjects(subjects);
             schoolClassService.create(request);
             ra.addFlashAttribute("success", "Class created");
         } catch (RuntimeException ex) {
@@ -520,6 +559,7 @@ public class AdminViewController {
             @RequestParam Integer generation,
             @RequestParam(required = false) Integer academicYear,
             @RequestParam UUID schoolUuid,
+            @RequestParam(required = false) List<String> subjects,
             RedirectAttributes ra) {
         try {
             SchoolClassRequest request = new SchoolClassRequest();
@@ -528,6 +568,7 @@ public class AdminViewController {
             request.setGeneration(generation);
             request.setAcademicYear(academicYear);
             request.setSchoolUuid(schoolUuid);
+            request.setSubjects(subjects);
             schoolClassService.update(id, request);
             ra.addFlashAttribute("success", "Class updated");
             return "redirect:/admin/classes/" + id;
@@ -561,13 +602,28 @@ public class AdminViewController {
             RedirectAttributes ra) {
         try {
             fillCommon(model, authentication, "scores", "Scores");
-            model.addAttribute("scores", scoreService.list(classUuid, generation));
-            model.addAttribute("classes", generation == null
+            DataUser account = (DataUser) model.getAttribute("account");
+            // Students use Grades (own GPA); staff use session + class like Classes
+            if (account != null && account.getRole() == RoleName.STUDENT) {
+                return "redirect:/admin/grades/" + account.getUuid()
+                        + (generation != null ? "?generation=" + generation : "");
+            }
+            List<SchoolClassResponse> classes = generation == null
                     ? schoolClassService.getAll()
-                    : schoolClassService.getByGeneration(generation));
+                    : schoolClassService.getByGeneration(generation);
+            final UUID selectedClass = classUuid != null
+                    && classes.stream().anyMatch(c -> classUuid.equals(c.getUuid()))
+                            ? classUuid
+                            : null;
+            model.addAttribute("scores",
+                    selectedClass != null
+                            ? scoreService.list(selectedClass, generation)
+                            : List.of());
+            model.addAttribute("classes", classes);
             model.addAttribute("generations", schoolClassService.listGenerations());
-            model.addAttribute("selectedClassUuid", classUuid);
+            model.addAttribute("selectedClassUuid", selectedClass);
             model.addAttribute("selectedGeneration", generation);
+            model.addAttribute("requireClassPick", selectedClass == null);
             return "pages/scores";
         } catch (Exception ex) {
             ra.addFlashAttribute("error", "Unable to load scores");
@@ -582,6 +638,110 @@ public class AdminViewController {
         fillScoreFormOptions(model);
         model.addAttribute("mode", "create");
         return "pages/score-form";
+    }
+
+    @GetMapping("/scores/session")
+    @PreAuthorize("hasAuthority('SCORE_WRITE')")
+    public String scoreSessionForm(
+            @RequestParam(required = false) Integer generation,
+            @RequestParam(required = false) UUID classUuid,
+            @RequestParam(required = false) String term,
+            @RequestParam(required = false) BigDecimal maxScore,
+            Authentication authentication,
+            Model model) {
+        fillCommon(model, authentication, "scores", "Score session");
+        List<SchoolClassResponse> classes = generation == null
+                ? schoolClassService.getAll()
+                : schoolClassService.getByGeneration(generation);
+        final UUID selectedClass = classUuid != null
+                && classes.stream().anyMatch(c -> classUuid.equals(c.getUuid()))
+                        ? classUuid
+                        : null;
+        String selectedTerm = (term == null || term.isBlank()) ? "Term 1" : term.trim();
+        BigDecimal selectedMax = maxScore != null ? maxScore : BigDecimal.valueOf(100);
+
+        List<String> subjects = List.of();
+        List<UserResponse> students = List.of();
+        Map<String, ScoreResponse> scoreByKey = Map.of();
+        boolean ready = selectedClass != null;
+        if (ready) {
+            SchoolClassResponse selected = classes.stream()
+                    .filter(c -> selectedClass.equals(c.getUuid()))
+                    .findFirst()
+                    .orElse(schoolClassService.getById(selectedClass));
+            subjects = selected.getSubjects() != null ? selected.getSubjects() : List.of();
+            students = studentsInClass(selectedClass);
+            scoreByKey = scoreService.listForSession(selectedClass, null, selectedTerm).stream()
+                    .filter(s -> s.getStudentUuid() != null && s.getSubject() != null)
+                    .collect(Collectors.toMap(
+                            s -> s.getStudentUuid() + "|" + s.getSubject().trim().toLowerCase(),
+                            s -> s,
+                            (a, b) -> a,
+                            LinkedHashMap::new));
+            if (!scoreByKey.isEmpty() && maxScore == null) {
+                ScoreResponse sample = scoreByKey.values().iterator().next();
+                if (sample.getMaxScore() != null) {
+                    selectedMax = sample.getMaxScore();
+                }
+            }
+        }
+
+        model.addAttribute("generations", schoolClassService.listGenerations());
+        model.addAttribute("classes", classes);
+        model.addAttribute("selectedGeneration", generation);
+        model.addAttribute("selectedClassUuid", selectedClass);
+        model.addAttribute("selectedTerm", selectedTerm);
+        model.addAttribute("selectedMaxScore", selectedMax);
+        model.addAttribute("subjects", subjects);
+        model.addAttribute("students", students);
+        model.addAttribute("scoreByKey", scoreByKey);
+        model.addAttribute("sessionReady", ready);
+        model.addAttribute("hasSubjects", !subjects.isEmpty());
+        return "pages/score-session";
+    }
+
+    @PostMapping("/scores/session")
+    @PreAuthorize("hasAuthority('SCORE_WRITE')")
+    public String scoreSessionSubmit(
+            @RequestParam UUID classUuid,
+            @RequestParam(required = false) String term,
+            @RequestParam(required = false) BigDecimal maxScore,
+            @RequestParam(required = false) Integer generation,
+            @RequestParam List<UUID> entryStudentUuid,
+            @RequestParam List<String> entrySubject,
+            @RequestParam List<String> entryScore,
+            RedirectAttributes ra) {
+        String redirect = "/admin/scores/session?classUuid=" + classUuid
+                + "&term=" + urlEncode(term != null ? term : "Term 1")
+                + (generation != null ? "&generation=" + generation : "")
+                + (maxScore != null ? "&maxScore=" + maxScore : "");
+        try {
+            ScoreBatchRequest batch = new ScoreBatchRequest();
+            batch.setClassUuid(classUuid);
+            batch.setTerm(term);
+            batch.setMaxScore(maxScore);
+            List<ScoreMarkItem> items = new ArrayList<>();
+            int n = Math.min(entryStudentUuid.size(), Math.min(entrySubject.size(), entryScore.size()));
+            for (int i = 0; i < n; i++) {
+                String raw = entryScore.get(i);
+                if (raw == null || raw.isBlank()) {
+                    continue;
+                }
+                ScoreMarkItem item = new ScoreMarkItem();
+                item.setStudentUuid(entryStudentUuid.get(i));
+                item.setSubject(entrySubject.get(i));
+                item.setScore(new BigDecimal(raw.trim()));
+                items.add(item);
+            }
+            batch.setItems(items);
+            int count = scoreService.upsertBatch(batch);
+            ra.addFlashAttribute("success", "Saved " + count + " score(s) for this session");
+            return "redirect:/admin/scores?classUuid=" + classUuid
+                    + (generation != null ? "&generation=" + generation : "");
+        } catch (RuntimeException ex) {
+            ra.addFlashAttribute("error", ex.getMessage());
+            return "redirect:" + redirect;
+        }
     }
 
     @GetMapping("/scores/import")
@@ -709,6 +869,22 @@ public class AdminViewController {
         model.addAttribute("students", userService.getAll().stream()
                 .filter(u -> u.getRole() == RoleName.STUDENT)
                 .toList());
+    }
+
+    private List<UserResponse> studentsInClass(UUID classUuid) {
+        return userService.getAll().stream()
+                .filter(u -> u.getRole() == RoleName.STUDENT)
+                .filter(u -> u.getClasses() != null
+                        && u.getClasses().stream().anyMatch(c -> classUuid.equals(c.getUuid())))
+                .sorted(Comparator.comparing(UserResponse::getName, String.CASE_INSENSITIVE_ORDER))
+                .toList();
+    }
+
+    private static String urlEncode(String value) {
+        if (value == null) {
+            return "";
+        }
+        return java.net.URLEncoder.encode(value, java.nio.charset.StandardCharsets.UTF_8);
     }
 
     private static ScoreRequest buildScoreRequest(

@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{layout :: layout(~{::section})}">
+<body>
+<section th:fragment="section">
+    <div class="page-toolbar">
+        <div class="page-toolbar-main">
+            <div>
+                <h2 class="page-heading" data-i18n="scores.sessionTitle">Score session</h2>
+                <p class="muted" data-i18n="scores.sessionSubtitle">Enter scores for all students across class subjects</p>
+            </div>
+            <div class="page-toolbar-actions row">
+                <a class="btn btn-ghost" th:href="@{/admin/scores}" data-i18n="common.back">Back</a>
+            </div>
+        </div>
+    </div>
+
+    <article class="form-card form-card-wide">
+        <form method="get" th:action="@{/admin/scores/session}" class="form-grid" style="margin-bottom:16px">
+            <label><span data-i18n="scores.session">Session</span>
+                <select name="generation" onchange="this.form.submit()" aria-label="Session">
+                    <option value="" data-i18n="scores.allSessions">All sessions</option>
+                    <option th:each="g : ${generations}"
+                            th:value="${g}"
+                            th:selected="${selectedGeneration != null and selectedGeneration == g}"
+                            th:text="${'G' + g + ' session'}">G9 session</option>
+                </select>
+            </label>
+            <label><span data-i18n="dash.class">Class</span>
+                <select name="classUuid" onchange="this.form.submit()" aria-label="Class">
+                    <option value="" data-i18n="scores.selectClass">Select class</option>
+                    <option th:each="c : ${classes}"
+                            th:value="${c.uuid}"
+                            th:selected="${selectedClassUuid != null and selectedClassUuid == c.uuid}"
+                            th:text="${c.name + ' · ' + (c.grade ?: '') + ' · ' + (c.generationCode ?: '')}">Class</option>
+                </select>
+            </label>
+            <label><span data-i18n="scores.term">Term</span>
+                <input type="text" name="term" placeholder="Term 1"
+                       th:value="${selectedTerm}">
+            </label>
+            <label><span data-i18n="scores.maxScore">Max score</span>
+                <input type="number" name="maxScore" min="0.01" step="0.01"
+                       th:value="${selectedMaxScore}">
+            </label>
+            <div style="display:flex; align-items:flex-end">
+                <button type="submit" class="btn btn-ghost" data-i18n="scores.loadSheet">Load table</button>
+            </div>
+        </form>
+
+        <div th:if="${sessionReady and hasSubjects and !#lists.isEmpty(students)}">
+            <p class="muted" style="margin:0 0 12px"
+               th:text="${selectedTerm + ' · max ' + selectedMaxScore + ' · ' + #lists.size(subjects) + ' subject(s)'}">
+                Term 1 · max 100 · 4 subject(s)
+            </p>
+
+            <form th:action="@{/admin/scores/session}" method="post">
+                <input type="hidden" name="classUuid" th:value="${selectedClassUuid}">
+                <input type="hidden" name="term" th:value="${selectedTerm}">
+                <input type="hidden" name="maxScore" th:value="${selectedMaxScore}">
+                <input type="hidden" th:if="${selectedGeneration != null}" name="generation" th:value="${selectedGeneration}">
+
+                <div class="table-wrap" style="overflow-x:auto">
+                    <table class="data-table score-session-table">
+                        <thead>
+                        <tr>
+                            <th>#</th>
+                            <th data-i18n="dash.student">Student</th>
+                            <th data-i18n="header.grade">Grade</th>
+                            <th th:each="subj : ${subjects}" th:text="${subj}">Math</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        <tr th:each="s, iter : ${students}">
+                            <td th:text="${iter.count}">1</td>
+                            <td>
+                                <strong th:text="${s.name}">Name</strong>
+                                <div class="muted" style="font-size:0.78rem" th:text="${s.email}">email</div>
+                            </td>
+                            <td th:text="${s.grade} ?: '—'">—</td>
+                            <td th:each="subj : ${subjects}">
+                                <input type="hidden" name="entryStudentUuid" th:value="${s.uuid}">
+                                <input type="hidden" name="entrySubject" th:value="${subj}">
+                                <input type="number" name="entryScore" min="0" step="0.01"
+                                       th:attr="max=${selectedMaxScore}"
+                                       th:value="${scoreByKey != null and scoreByKey.containsKey(s.uuid + '|' + #strings.toLowerCase(subj))} ? ${scoreByKey.get(s.uuid + '|' + #strings.toLowerCase(subj)).score} : ''"
+                                       placeholder="—"
+                                       style="width:88px; margin:0">
+                            </td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="modal-actions" style="margin-top:14px">
+                    <button type="submit" class="btn btn-dark" data-i18n="scores.saveSession">Save scores</button>
+                </div>
+            </form>
+        </div>
+
+        <p class="muted" th:if="${selectedClassUuid == null}"
+           data-i18n="scores.sessionPickClass">Select a class to load the score table.</p>
+        <p class="muted" th:if="${sessionReady and !hasSubjects}">
+            <span data-i18n="scores.noClassSubjects">This class has no subjects yet.</span>
+            <a th:href="@{/admin/classes/{id}/edit(id=${selectedClassUuid})}" data-i18n="scores.editClassSubjects">Add subjects to class</a>
+        </p>
+        <p class="muted" th:if="${sessionReady and hasSubjects and #lists.isEmpty(students)}"
+           data-i18n="scores.noStudents">No students in this class.</p>
+    </article>
+</section>
+</body>
+</html>

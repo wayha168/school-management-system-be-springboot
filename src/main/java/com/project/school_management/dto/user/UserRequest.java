@@ -1,5 +1,6 @@
 package com.project.school_management.dto.user;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
 
@@ -39,4 +40,7 @@ public class UserRequest {
 
     /** Teacher room / classroom */
     private String room;
+
+    /** Salary for teacher / staff roles */
+    private BigDecimal salary;
 }

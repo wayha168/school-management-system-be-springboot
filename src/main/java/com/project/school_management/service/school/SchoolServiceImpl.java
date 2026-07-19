@@ -60,7 +60,12 @@ public class SchoolServiceImpl implements SchoolService {
     public List<SchoolResponse> getAll() {
         return schoolScopeService.scopedSchoolUuid()
                 .map(schoolUuid -> List.of(getById(schoolUuid)))
-                .orElseGet(() -> schoolRepository.findAll().stream().map(SchoolResponse::from).toList());
+                .orElseGet(() -> schoolRepository.findAll().stream().map(SchoolResponse::from).toList())
+                .stream()
+                .sorted(java.util.Comparator.comparing(
+                        s -> s.getName() == null ? "" : s.getName(),
+                        String.CASE_INSENSITIVE_ORDER))
+                .toList();
     }
 
     @Override

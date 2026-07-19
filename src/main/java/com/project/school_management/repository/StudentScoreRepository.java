@@ -141,4 +141,33 @@ public interface StudentScoreRepository extends JpaRepository<StudentScore, UUID
             WHERE c.generation = :generation
             """)
     List<UUID> findStudentUuidsByGeneration(@Param("generation") Integer generation);
+
+    @Query("""
+            SELECT DISTINCT s FROM StudentScore s
+            JOIN FETCH s.student
+            JOIN FETCH s.schoolClass c
+            JOIN FETCH c.school
+            JOIN FETCH s.teacher
+            WHERE c.uuid = :classUuid
+              AND LOWER(s.subject) = LOWER(:subject)
+              AND LOWER(s.term) = LOWER(:term)
+            ORDER BY s.student.name
+            """)
+    List<StudentScore> findDetailedByClassSubjectTerm(
+            @Param("classUuid") UUID classUuid,
+            @Param("subject") String subject,
+            @Param("term") String term);
+
+    @Query("""
+            SELECT s FROM StudentScore s
+            WHERE s.student.uuid = :studentUuid
+              AND s.schoolClass.uuid = :classUuid
+              AND LOWER(s.subject) = LOWER(:subject)
+              AND LOWER(s.term) = LOWER(:term)
+            """)
+    Optional<StudentScore> findByStudentClassSubjectTerm(
+            @Param("studentUuid") UUID studentUuid,
+            @Param("classUuid") UUID classUuid,
+            @Param("subject") String subject,
+            @Param("term") String term);
 }

@@ -43,6 +43,10 @@
                 <span class="label">Room / Class</span>
                 <p th:text="${user.room} ?: '—'">Room</p>
             </div>
+            <div th:if="${user.role != null and user.role.name() != 'STUDENT'}">
+                <span class="label" data-i18n="users.salary">Salary</span>
+                <p th:text="${user.salary != null} ? ${user.salary} : '—'">—</p>
+            </div>
             <div>
                 <span class="label">Online</span>
                 <p>

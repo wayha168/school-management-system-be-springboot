@@ -1,3 +1,8 @@
+-- Canonical PostgreSQL schema for School Management.
+-- Runs on startup (spring.sql.init.mode=always) with continue-on-error.
+-- Hibernate ddl-auto=update also syncs entity changes; keep this file aligned
+-- whenever new tables/columns are added so fresh DBs match the app.
+
 CREATE TABLE IF NOT EXISTS roles (
     uuid UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name VARCHAR(50) NOT NULL UNIQUE,
@@ -48,6 +53,14 @@ CREATE TABLE IF NOT EXISTS school_classes (
 
 ALTER TABLE school_classes ADD COLUMN IF NOT EXISTS generation INTEGER;
 ALTER TABLE school_classes ADD COLUMN IF NOT EXISTS academic_year INTEGER;
+ALTER TABLE school_classes ADD COLUMN IF NOT EXISTS grade VARCHAR(50);
+
+CREATE TABLE IF NOT EXISTS school_class_subjects (
+    school_class_uuid UUID NOT NULL REFERENCES school_classes (uuid) ON DELETE CASCADE,
+    subject VARCHAR(100) NOT NULL,
+    sort_order INTEGER NOT NULL,
+    PRIMARY KEY (school_class_uuid, sort_order)
+);
 
 CREATE TABLE IF NOT EXISTS users (
     uuid UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -56,17 +69,28 @@ CREATE TABLE IF NOT EXISTS users (
     password VARCHAR(255) NOT NULL,
     role_uuid UUID NOT NULL REFERENCES roles (uuid),
     school_uuid UUID NOT NULL REFERENCES school_management (uuid),
-    class_uuid UUID REFERENCES school_classes (uuid),
     grade VARCHAR(50),
     room VARCHAR(100),
+    salary NUMERIC(14, 2),
+    profile_image_data BYTEA,
+    profile_image_content_type VARCHAR(100),
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP
 );
 
 ALTER TABLE users ADD COLUMN IF NOT EXISTS grade VARCHAR(50);
 ALTER TABLE users ADD COLUMN IF NOT EXISTS room VARCHAR(100);
+ALTER TABLE users ADD COLUMN IF NOT EXISTS salary NUMERIC(14, 2);
 ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_image_data BYTEA;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_image_content_type VARCHAR(100);
+-- Legacy single-class FK replaced by user_school_classes join table
+ALTER TABLE users DROP COLUMN IF EXISTS class_uuid;
+
+CREATE TABLE IF NOT EXISTS user_school_classes (
+    user_uuid UUID NOT NULL REFERENCES users (uuid) ON DELETE CASCADE,
+    school_class_uuid UUID NOT NULL REFERENCES school_classes (uuid) ON DELETE CASCADE,
+    PRIMARY KEY (user_uuid, school_class_uuid)
+);
 
 CREATE TABLE IF NOT EXISTS student_scores (
     uuid UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -140,7 +164,22 @@ CREATE TABLE IF NOT EXISTS payment_records (
     updated_at TIMESTAMP
 );
 
+-- Indexes
 CREATE INDEX IF NOT EXISTS idx_users_school_uuid ON users (school_uuid);
 CREATE INDEX IF NOT EXISTS idx_users_role_uuid ON users (role_uuid);
 CREATE INDEX IF NOT EXISTS idx_school_classes_school_uuid ON school_classes (school_uuid);
+CREATE INDEX IF NOT EXISTS idx_school_classes_generation ON school_classes (generation);
+CREATE INDEX IF NOT EXISTS idx_school_classes_grade ON school_classes (grade);
 CREATE INDEX IF NOT EXISTS idx_role_permissions_role_uuid ON role_permissions (role_uuid);
+CREATE INDEX IF NOT EXISTS idx_user_school_classes_user ON user_school_classes (user_uuid);
+CREATE INDEX IF NOT EXISTS idx_user_school_classes_class ON user_school_classes (school_class_uuid);
+CREATE INDEX IF NOT EXISTS idx_student_scores_student ON student_scores (student_uuid);
+CREATE INDEX IF NOT EXISTS idx_student_scores_class ON student_scores (school_class_uuid);
+CREATE INDEX IF NOT EXISTS idx_student_scores_teacher ON student_scores (teacher_uuid);
+CREATE INDEX IF NOT EXISTS idx_attendance_user ON attendance_records (user_uuid);
+CREATE INDEX IF NOT EXISTS idx_attendance_class ON attendance_records (school_class_uuid);
+CREATE INDEX IF NOT EXISTS idx_attendance_date ON attendance_records (attendance_date);
+CREATE INDEX IF NOT EXISTS idx_user_requests_from ON user_requests (from_user_uuid);
+CREATE INDEX IF NOT EXISTS idx_user_requests_status ON user_requests (status);
+CREATE INDEX IF NOT EXISTS idx_payroll_user ON payroll_records (user_uuid);
+CREATE INDEX IF NOT EXISTS idx_payment_user ON payment_records (user_uuid);

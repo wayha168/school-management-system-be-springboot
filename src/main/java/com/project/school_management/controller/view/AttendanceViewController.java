@@ -73,6 +73,7 @@ public class AttendanceViewController {
     public String list(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
             @RequestParam(required = false) UUID classUuid,
+            @RequestParam(required = false) Integer generation,
             @RequestParam(required = false) String role,
             @RequestParam(required = false) String tab,
             @RequestParam(required = false) String view,
@@ -95,13 +96,23 @@ public class AttendanceViewController {
                         .filter(r -> r.getUserRole() == roleFilter)
                         .toList();
             }
+            if (generation != null) {
+                records = records.stream()
+                        .filter(r -> generation.equals(r.getGeneration()))
+                        .toList();
+            }
 
             List<SchoolClassResponse> classes = visibleClasses(account);
+            List<SchoolClassResponse> filteredClasses = generation == null
+                    ? classes
+                    : classes.stream().filter(c -> generation.equals(c.getGeneration())).toList();
             model.addAttribute("records", records);
-            model.addAttribute("classes", classes);
-            model.addAttribute("classOverviews", buildClassOverviews(classes));
+            model.addAttribute("classes", filteredClasses);
+            model.addAttribute("classOverviews", buildClassOverviews(filteredClasses));
+            model.addAttribute("generations", schoolClassService.listGenerations());
             model.addAttribute("selectedDate", date);
             model.addAttribute("selectedClassUuid", classUuid);
+            model.addAttribute("selectedGeneration", generation);
             model.addAttribute("selectedRole", roleFilter);
             model.addAttribute("roleTabs", ATTENDANCE_ROLE_TABS);
             model.addAttribute("activeTab", activeTab);
@@ -142,6 +153,7 @@ public class AttendanceViewController {
                     .filter(r -> r.getUserUuid() != null)
                     .collect(Collectors.toMap(AttendanceResponse::getUserUuid, r -> r, (a, b) -> a, LinkedHashMap::new));
 
+            var monthChart = attendanceService.classMonthChart(classUuid, 30);
             model.addAttribute("schoolClass", schoolClass);
             model.addAttribute("teachers", teachers);
             model.addAttribute("students", students);
@@ -149,6 +161,10 @@ public class AttendanceViewController {
             model.addAttribute("selectedDate", day);
             model.addAttribute("statuses", AttendanceStatus.values());
             model.addAttribute("canMark", canMark(account));
+            model.addAttribute("classMonthLabels", monthChart.getLabels());
+            model.addAttribute("classMonthPresent", monthChart.getPresent());
+            model.addAttribute("classMonthAbsent", monthChart.getAbsent());
+            model.addAttribute("classMonthLate", monthChart.getLate());
             return "pages/attendance-class";
         } catch (Exception ex) {
             ra.addFlashAttribute("error", ex.getMessage());
@@ -172,13 +188,18 @@ public class AttendanceViewController {
         model.addAttribute("selectedDate", day);
         model.addAttribute("statuses", AttendanceStatus.values());
         List<UserResponse> students = List.of();
+        Map<UUID, AttendanceResponse> byUser = Map.of();
         if (classUuid != null) {
             boolean allowed = classes.stream().anyMatch(c -> classUuid.equals(c.getUuid()));
             if (allowed) {
                 students = studentsInClass(classUuid);
+                byUser = attendanceService.list(day, classUuid, null).stream()
+                        .filter(r -> r.getUserUuid() != null)
+                        .collect(Collectors.toMap(AttendanceResponse::getUserUuid, r -> r, (a, b) -> a, LinkedHashMap::new));
             }
         }
         model.addAttribute("students", students);
+        model.addAttribute("attendanceByUser", byUser);
         return "pages/attendance-mark";
     }
 

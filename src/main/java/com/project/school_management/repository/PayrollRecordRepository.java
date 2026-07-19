@@ -26,8 +26,10 @@ public interface PayrollRecordRepository extends JpaRepository<PayrollRecord, UU
             JOIN FETCH p.user u
             LEFT JOIN FETCH u.school
             LEFT JOIN FETCH p.createdBy
-            WHERE (:userUuid IS NULL OR u.uuid = :userUuid)
+            WHERE (:filterUser = false OR u.uuid = :userUuid)
             ORDER BY p.period DESC
             """)
-    List<PayrollRecord> findDetailed(@Param("userUuid") UUID userUuid);
+    List<PayrollRecord> findDetailed(
+            @Param("filterUser") boolean filterUser,
+            @Param("userUuid") UUID userUuid);
 }

@@ -24,6 +24,10 @@ public interface AttendanceRecordRepository extends JpaRepository<AttendanceReco
             """)
     Optional<AttendanceRecord> findDetailedById(@Param("id") UUID id);
 
+    /**
+     * Use boolean flags instead of {@code :param IS NULL} — PostgreSQL cannot
+     * infer JDBC types for null parameters in that pattern.
+     */
     @Query("""
             SELECT DISTINCT a FROM AttendanceRecord a
             JOIN FETCH a.user u
@@ -31,14 +35,17 @@ public interface AttendanceRecordRepository extends JpaRepository<AttendanceReco
             LEFT JOIN FETCH a.schoolClass c
             LEFT JOIN FETCH c.school
             LEFT JOIN FETCH a.markedBy
-            WHERE (:date IS NULL OR a.attendanceDate = :date)
-              AND (:classUuid IS NULL OR c.uuid = :classUuid)
-              AND (:userUuid IS NULL OR u.uuid = :userUuid)
+            WHERE (:filterDate = false OR a.attendanceDate = :date)
+              AND (:filterClass = false OR c.uuid = :classUuid)
+              AND (:filterUser = false OR u.uuid = :userUuid)
             ORDER BY a.attendanceDate DESC, u.name
             """)
     List<AttendanceRecord> findFiltered(
+            @Param("filterDate") boolean filterDate,
             @Param("date") LocalDate date,
+            @Param("filterClass") boolean filterClass,
             @Param("classUuid") UUID classUuid,
+            @Param("filterUser") boolean filterUser,
             @Param("userUuid") UUID userUuid);
 
     Optional<AttendanceRecord> findByUser_UuidAndSchoolClass_UuidAndAttendanceDate(

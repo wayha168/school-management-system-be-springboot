@@ -6,51 +6,133 @@
     <div class="page-toolbar">
         <div class="page-toolbar-main">
             <div>
-                <h2 class="page-heading">Grades</h2>
-                <p class="muted">Sessions with scores · student GPA and subject averages</p>
+                <h2 class="page-heading" data-i18n="grades.title">Grades</h2>
+                <p class="muted">Pick session &amp; class, then select a student to view GPA</p>
             </div>
             <div class="page-toolbar-actions">
                 <div class="page-toolbar-left">
-                    <input type="search" class="search-input" placeholder="Search student..."
-                           data-table-search="grades-table" aria-label="Search students">
-                    <form class="filter-bar" method="get" th:action="@{/admin/grades}">
-                        <select name="generation" onchange="this.form.submit()">
-                            <option value="">All generations</option>
+                    <form class="filter-bar" method="get" th:action="@{/admin/grades}" id="grades-filter-form">
+                        <select name="generation" onchange="this.form.submit()" aria-label="Session / generation">
+                            <option value="" data-i18n="filter.allGenerations">All sessions</option>
                             <option th:each="g : ${generations}" th:value="${g}"
                                     th:selected="${selectedGeneration != null and selectedGeneration == g}"
-                                    th:text="${'G' + g}">G9</option>
+                                    th:text="${'G' + g + ' session'}">G9 session</option>
+                        </select>
+                        <select name="classUuid" onchange="this.form.submit()" aria-label="Class">
+                            <option value="">Select class</option>
+                            <option th:each="c : ${classes}" th:value="${c.uuid}"
+                                    th:selected="${selectedClassUuid != null and selectedClassUuid == c.uuid}"
+                                    th:text="${c.name + ' · ' + (c.generationCode ?: '') + (c.grade != null ? ' · ' + c.grade : '')}">Class</option>
                         </select>
                     </form>
                 </div>
             </div>
         </div>
     </div>
-    <div class="table-wrap">
-        <table class="data-table" id="grades-table">
-            <thead>
-            <tr>
-                <th>Student</th>
-                <th>Email</th>
-                <th>Grade</th>
-                <th>Classes</th>
-                <th>Actions</th>
-            </tr>
-            </thead>
-            <tbody>
-            <tr th:each="s : ${students}"
-                th:attr="data-search=${s.name + ' ' + s.email}">
-                <td th:text="${s.name}">Name</td>
-                <td th:text="${s.email}">email</td>
-                <td th:text="${s.grade} ?: '—'">Grade</td>
-                <td th:text="${s.classNames} ?: '—'">Class</td>
-                <td>
-                    <a class="btn btn-ghost" th:href="@{/admin/grades/{id}(id=${s.uuid})}">View GPA</a>
-                </td>
-            </tr>
-            <tr th:if="${#lists.isEmpty(students)}"><td colspan="5">No students found.</td></tr>
-            </tbody>
-        </table>
-    </div>
+
+    <th:block th:if="${selectedClassUuid == null}">
+        <article class="panel-card">
+            <p class="muted" style="margin:0">Select a <strong>session</strong> (generation) and a <strong>class</strong> to list students and check GPA.</p>
+        </article>
+    </th:block>
+
+    <th:block th:if="${selectedClassUuid != null}">
+        <div class="summary-grid" style="margin-bottom:16px" th:if="${selectedClass != null}">
+            <article class="summary-card">
+                <div>
+                    <span class="summary-label">Class</span>
+                    <p class="summary-value" style="font-size:1.1rem" th:text="${selectedClass.name}">Class</p>
+                </div>
+            </article>
+            <article class="summary-card">
+                <div>
+                    <span class="summary-label">Session</span>
+                    <p class="summary-value" style="font-size:1.1rem"
+                       th:text="${selectedGeneration != null ? 'G' + selectedGeneration : (selectedClass.generationCode ?: '—')}">G9</p>
+                </div>
+            </article>
+            <article class="summary-card">
+                <div>
+                    <span class="summary-label">Class avg GPA</span>
+                    <p class="summary-value" th:text="${classAvgGpa != null ? classAvgGpa : '—'}">—</p>
+                </div>
+            </article>
+            <article class="summary-card">
+                <div>
+                    <span class="summary-label">Class avg %</span>
+                    <p class="summary-value" th:text="${classAvgPercent != null ? classAvgPercent : '—'}">—</p>
+                </div>
+            </article>
+        </div>
+
+        <article class="form-card form-card-wide" style="margin-bottom:16px">
+            <div class="filter-bar">
+                <label>Student
+                    <select id="grade-student-pick" aria-label="Select student"
+                            th:attr="data-generation=${selectedGeneration}, data-class=${selectedClassUuid}">
+                        <option value="" disabled selected>Select student in this class</option>
+                        <option th:each="s : ${students}" th:value="${s.studentUuid}"
+                                th:text="${s.studentName + ' · ' + s.studentEmail}">Student</option>
+                    </select>
+                </label>
+                <button type="button" class="btn btn-dark" id="grade-student-view">View GPA</button>
+            </div>
+            <script>
+                (function () {
+                    var sel = document.getElementById('grade-student-pick');
+                    var btn = document.getElementById('grade-student-view');
+                    if (!sel || !btn) return;
+                    function go() {
+                        if (!sel.value) return;
+                        var q = [];
+                        var g = sel.getAttribute('data-generation');
+                        var c = sel.getAttribute('data-class');
+                        if (g) q.push('generation=' + encodeURIComponent(g));
+                        if (c) q.push('classUuid=' + encodeURIComponent(c));
+                        location.href = '/admin/grades/' + sel.value + (q.length ? '?' + q.join('&') : '');
+                    }
+                    btn.addEventListener('click', go);
+                    sel.addEventListener('change', go);
+                })();
+            </script>
+        </article>
+
+        <nav class="alpha-filter" data-alpha-filter="grades-table" role="toolbar"></nav>
+        <div class="table-wrap">
+            <table class="data-table" id="grades-table">
+                <thead>
+                <tr>
+                    <th data-i18n="dash.student">Student</th>
+                    <th data-i18n="common.email">Email</th>
+                    <th data-i18n="dash.grade">Grade</th>
+                    <th data-i18n="dash.gpa">GPA</th>
+                    <th data-i18n="dash.percent">%</th>
+                    <th data-i18n="dash.letter">Letter</th>
+                    <th data-i18n="common.actions">Actions</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr th:each="s : ${students}"
+                    th:attr="data-search=${s.studentName + ' ' + s.studentEmail},
+                             data-name=${s.studentName}">
+                    <td th:text="${s.studentName}">Name</td>
+                    <td th:text="${s.studentEmail}">email</td>
+                    <td th:text="${s.grade} ?: '—'">Grade</td>
+                    <td th:text="${s.totalScores > 0 ? s.gpa : '—'}">0.00</td>
+                    <td th:text="${s.totalScores > 0 ? s.averagePercent : '—'}">0.00</td>
+                    <td th:text="${s.totalScores > 0 ? s.letterGrade : '—'}">A</td>
+                    <td>
+                        <a class="btn btn-ghost"
+                           th:href="@{/admin/grades/{id}(id=${s.studentUuid}, generation=${selectedGeneration}, classUuid=${selectedClassUuid})}">View GPA</a>
+                    </td>
+                </tr>
+                <tr th:if="${#lists.isEmpty(students)}">
+                    <td colspan="7">No students in this class.</td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    </th:block>
 </section>
 </body>
 </html>

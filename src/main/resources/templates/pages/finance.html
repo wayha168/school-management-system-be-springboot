@@ -7,17 +7,22 @@
     <div class="page-toolbar">
         <div class="page-toolbar-main">
             <div>
-                <h2 class="page-heading">Finance</h2>
-                <p class="muted" th:text="${staffView} ? 'Payroll and payments' : 'My account payments'">Finance</p>
+                <h2 class="page-heading" data-i18n="finance.title">Finance</h2>
+                <p class="muted"
+                   th:attr="data-i18n=${staffView} ? 'finance.subtitleStaff' : 'finance.subtitleMine'"
+                   th:text="${staffView} ? 'Payroll and payments' : 'My account payments'">Finance</p>
             </div>
             <div class="page-toolbar-actions">
                 <div class="page-toolbar-left">
                     <input type="search" class="search-input" placeholder="Search..."
+                           data-i18n-placeholder="search.generic"
                            data-table-search="finance-payroll-table" data-view-search>
                 </div>
                 <div class="page-toolbar-right" sec:authorize="hasAuthority('FINANCE_WRITE')">
-                    <a class="btn btn-ghost" th:href="@{/admin/finance/payroll/new}" data-view-action="payroll">Add payroll</a>
-                    <a class="btn btn-dark" th:href="@{/admin/finance/payments/new}" data-view-action="payments" hidden>Add payment</a>
+                    <a class="btn btn-ghost" th:href="@{/admin/finance/payroll/new}" data-view-action="payroll"
+                       data-i18n="finance.addPayroll">Add payroll</a>
+                    <a class="btn btn-dark" th:href="@{/admin/finance/payments/new}" data-view-action="payments" hidden
+                       data-i18n="finance.addPayment">Add payment</a>
                 </div>
             </div>
         </div>
@@ -26,18 +31,27 @@
     <div class="view-switch-row">
         <div class="view-switch" data-view-switch data-view-default="payroll" role="tablist" aria-label="Finance tables">
             <button type="button" class="view-switch-btn is-active" data-view-target="payroll"
-                    data-search-table="finance-payroll-table">Payroll</button>
+                    data-search-table="finance-payroll-table" data-i18n="finance.payroll">Payroll</button>
             <button type="button" class="view-switch-btn" data-view-target="payments"
-                    data-search-table="finance-payments-table">Payments</button>
+                    data-search-table="finance-payments-table" data-i18n="finance.payments">Payments</button>
         </div>
     </div>
 
     <div class="view-panel" data-view-panel="payroll" data-search-table="finance-payroll-table">
         <div class="table-wrap">
             <table class="data-table" id="finance-payroll-table">
-                <thead><tr><th>User</th><th>Period</th><th>Amount</th><th>Status</th><th>Note</th><th>Actions</th></tr></thead>
+                <thead>
+                <tr>
+                    <th data-i18n="finance.user">User</th>
+                    <th data-i18n="finance.period">Period</th>
+                    <th data-i18n="finance.amount">Amount</th>
+                    <th data-i18n="common.status">Status</th>
+                    <th data-i18n="finance.note">Note</th>
+                    <th data-i18n="common.actions">Actions</th>
+                </tr>
+                </thead>
                 <tbody>
-                <tr th:each="item : ${payroll}" th:attr="data-search=${item.userName + ' ' + item.period}">
+                <tr th:each="item : ${payroll}" th:attr="data-search=${item.userName + ' ' + item.period}, data-name=${item.userName}">
                     <td>
                         <a th:if="${staffView}" th:href="@{/admin/finance/users/{id}(id=${item.userUuid})}"
                            th:text="${item.userName}">User</a>
@@ -57,7 +71,7 @@
                         </button>
                     </td>
                 </tr>
-                <tr th:if="${#lists.isEmpty(payroll)}"><td colspan="6">No payroll records.</td></tr>
+                <tr th:if="${#lists.isEmpty(payroll)}"><td colspan="6" data-i18n="finance.emptyPayroll">No payroll records.</td></tr>
                 </tbody>
             </table>
         </div>
@@ -66,10 +80,20 @@
     <div class="view-panel" data-view-panel="payments" data-search-table="finance-payments-table" hidden>
         <div class="table-wrap">
             <table class="data-table" id="finance-payments-table">
-                <thead><tr><th>User</th><th>Type</th><th>Amount</th><th>Due</th><th>Status</th><th>Note</th><th>Actions</th></tr></thead>
+                <thead>
+                <tr>
+                    <th data-i18n="finance.user">User</th>
+                    <th data-i18n="finance.type">Type</th>
+                    <th data-i18n="finance.amount">Amount</th>
+                    <th data-i18n="finance.due">Due</th>
+                    <th data-i18n="common.status">Status</th>
+                    <th data-i18n="finance.note">Note</th>
+                    <th data-i18n="common.actions">Actions</th>
+                </tr>
+                </thead>
                 <tbody>
                 <tr th:each="item : ${payments}"
-                    th:attr="data-search=${item.userName + ' ' + item.paymentType}">
+                    th:attr="data-search=${item.userName + ' ' + item.paymentType}, data-name=${item.userName}">
                     <td>
                         <a th:if="${staffView}" th:href="@{/admin/finance/users/{id}(id=${item.userUuid})}"
                            th:text="${item.userName}">User</a>
@@ -90,7 +114,7 @@
                         </button>
                     </td>
                 </tr>
-                <tr th:if="${#lists.isEmpty(payments)}"><td colspan="7">No payment records.</td></tr>
+                <tr th:if="${#lists.isEmpty(payments)}"><td colspan="7" data-i18n="finance.emptyPayments">No payment records.</td></tr>
                 </tbody>
             </table>
         </div>

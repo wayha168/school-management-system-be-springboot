@@ -5,8 +5,8 @@
 <section th:fragment="section">
     <div class="page-toolbar">
         <div class="page-toolbar-main">
-            <h2 class="page-heading">Mark attendance</h2>
-            <p class="muted">Teachers: your classes only · Admin/Superadmin: all classes</p>
+            <h2 class="page-heading">Assign attendance</h2>
+            <p class="muted">Mark each student P (Present), A (Absent), or L (Late). Records are saved per day.</p>
             <div class="page-toolbar-actions row">
                 <a class="btn btn-ghost" th:href="@{/admin/attendance}">Back</a>
             </div>
@@ -34,18 +34,32 @@
             <input type="hidden" name="attendanceDate" th:value="${selectedDate}">
             <div class="table-wrap">
                 <table class="data-table">
-                    <thead><tr><th>Student</th><th>Email</th><th>Status</th></tr></thead>
+                    <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Student</th>
+                        <th>Email</th>
+                        <th>Status</th>
+                    </tr>
+                    </thead>
                     <tbody>
-                    <tr th:each="s : ${students}">
+                    <tr th:each="s, iter : ${students}">
+                        <td th:text="${iter.count}">1</td>
                         <td>
                             <input type="hidden" name="studentUuid" th:value="${s.uuid}">
                             <span th:text="${s.name}">Name</span>
                         </td>
                         <td th:text="${s.email}">email</td>
                         <td>
-                            <select name="status">
-                                <option th:each="st : ${statuses}" th:value="${st}" th:text="${st}"
-                                        th:selected="${st.name() == 'PRESENT'}">PRESENT</option>
+                            <select name="status" class="attendance-status-select" aria-label="Attendance status">
+                                <option value="PRESENT"
+                                        th:selected="${attendanceByUser == null or !attendanceByUser.containsKey(s.uuid) or attendanceByUser.get(s.uuid).status.name() == 'PRESENT'}">P · Present</option>
+                                <option value="ABSENT"
+                                        th:selected="${attendanceByUser != null and attendanceByUser.containsKey(s.uuid) and attendanceByUser.get(s.uuid).status.name() == 'ABSENT'}">A · Absent</option>
+                                <option value="LATE"
+                                        th:selected="${attendanceByUser != null and attendanceByUser.containsKey(s.uuid) and attendanceByUser.get(s.uuid).status.name() == 'LATE'}">L · Late</option>
+                                <option value="EXCUSED"
+                                        th:selected="${attendanceByUser != null and attendanceByUser.containsKey(s.uuid) and attendanceByUser.get(s.uuid).status.name() == 'EXCUSED'}">E · Excused</option>
                             </select>
                         </td>
                     </tr>
@@ -57,6 +71,7 @@
             </div>
         </form>
         <p class="muted" th:if="${selectedClassUuid != null and #lists.isEmpty(students)}">No students in this class.</p>
+        <p class="muted" th:if="${selectedClassUuid == null}">Select a class to load students.</p>
     </article>
 </section>
 </body>

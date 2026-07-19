@@ -7,6 +7,7 @@ import java.util.UUID;
 import com.project.school_management.dto.attendance.AttendanceBatchRequest;
 import com.project.school_management.dto.attendance.AttendanceRequest;
 import com.project.school_management.dto.attendance.AttendanceResponse;
+import com.project.school_management.dto.dashboard.ChartSeries;
 
 public interface AttendanceService {
 
@@ -19,4 +20,10 @@ public interface AttendanceService {
     int markBatch(AttendanceBatchRequest request);
 
     void delete(UUID id);
+
+    /** Daily P/A/L counts for the last {@code days} days (inclusive of today). */
+    ChartSeries lastMonthChart(int days);
+
+    /** Daily P/A/L counts for one class over the last {@code days} days. */
+    ChartSeries classMonthChart(UUID classUuid, int days);
 }

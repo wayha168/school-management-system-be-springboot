@@ -37,8 +37,10 @@ public interface UserRequestRepository extends JpaRepository<UserRequest, UUID> 
             JOIN FETCH r.fromUser u
             LEFT JOIN FETCH u.school
             LEFT JOIN FETCH r.handledBy
-            WHERE (:status IS NULL OR r.status = :status)
+            WHERE (:filterStatus = false OR r.status = :status)
             ORDER BY r.createdAt DESC
             """)
-    List<UserRequest> findDetailedByStatus(@Param("status") RequestStatus status);
+    List<UserRequest> findDetailedByStatus(
+            @Param("filterStatus") boolean filterStatus,
+            @Param("status") RequestStatus status);
 }

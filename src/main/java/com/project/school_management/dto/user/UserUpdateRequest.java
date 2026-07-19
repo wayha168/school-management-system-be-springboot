@@ -1,5 +1,6 @@
 package com.project.school_management.dto.user;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
 
@@ -34,4 +35,6 @@ public class UserUpdateRequest {
     private String grade;
 
     private String room;
+
+    private BigDecimal salary;
 }

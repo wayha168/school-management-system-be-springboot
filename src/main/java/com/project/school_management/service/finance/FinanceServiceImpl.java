@@ -31,6 +31,8 @@ import com.project.school_management.security.SchoolScopeService;
 @Transactional
 public class FinanceServiceImpl implements FinanceService {
 
+    private static final UUID NIL_UUID = new UUID(0L, 0L);
+
     private final PayrollRecordRepository payrollRepository;
     private final PaymentRecordRepository paymentRepository;
     private final UserRepository userRepository;
@@ -51,7 +53,8 @@ public class FinanceServiceImpl implements FinanceService {
     @Transactional(readOnly = true)
     public List<PayrollResponse> listPayroll(UUID userUuid) {
         requireFinanceRead();
-        return payrollRepository.findDetailed(userUuid).stream()
+        boolean filterUser = userUuid != null;
+        return payrollRepository.findDetailed(filterUser, filterUser ? userUuid : NIL_UUID).stream()
                 .filter(this::payrollInScope)
                 .map(PayrollResponse::from)
                 .toList();
@@ -61,7 +64,8 @@ public class FinanceServiceImpl implements FinanceService {
     @Transactional(readOnly = true)
     public List<PaymentResponse> listPayments(UUID userUuid) {
         requireFinanceRead();
-        return paymentRepository.findDetailed(userUuid).stream()
+        boolean filterUser = userUuid != null;
+        return paymentRepository.findDetailed(filterUser, filterUser ? userUuid : NIL_UUID).stream()
                 .filter(this::paymentInScope)
                 .map(PaymentResponse::from)
                 .toList();
@@ -175,8 +179,8 @@ public class FinanceServiceImpl implements FinanceService {
         return FinanceMeResponse.builder()
                 .userUuid(user.getUuid())
                 .userName(user.getName())
-                .payroll(payrollRepository.findDetailed(user.getUuid()).stream().map(PayrollResponse::from).toList())
-                .payments(paymentRepository.findDetailed(user.getUuid()).stream().map(PaymentResponse::from).toList())
+                .payroll(payrollRepository.findDetailed(true, user.getUuid()).stream().map(PayrollResponse::from).toList())
+                .payments(paymentRepository.findDetailed(true, user.getUuid()).stream().map(PaymentResponse::from).toList())
                 .build();
     }
 

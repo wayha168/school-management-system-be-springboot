@@ -7,38 +7,43 @@
     <div class="page-toolbar">
         <div class="page-toolbar-main">
             <div>
-                <h2 class="page-heading">Schools</h2>
-                <p class="muted">Manage schools on the platform</p>
+                <h2 class="page-heading" data-i18n="schools.title">Schools</h2>
+                <p class="muted" data-i18n="schools.subtitle">Manage schools on the platform</p>
             </div>
             <div class="page-toolbar-actions">
                 <div class="page-toolbar-left">
                     <input type="search" class="search-input" placeholder="Search name or email..."
+                           data-i18n-placeholder="search.nameEmail"
                            data-table-search="schools-table" aria-label="Search schools">
                 </div>
                 <div class="page-toolbar-right">
-                    <a class="btn btn-dark" sec:authorize="hasAuthority('SCHOOL_WRITE')" th:href="@{/admin/schools/new}">Add School</a>
+                    <a class="btn btn-dark" sec:authorize="hasAuthority('SCHOOL_WRITE')" th:href="@{/admin/schools/new}"
+                       data-i18n="schools.add">Add School</a>
                 </div>
             </div>
         </div>
     </div>
 
+    <nav class="alpha-filter" data-alpha-filter="schools-table" role="toolbar"></nav>
+
     <div class="table-wrap">
         <table class="data-table" id="schools-table">
             <thead>
             <tr>
-                <th>ID</th>
-                <th>Photo</th>
-                <th>Name</th>
-                <th>Email</th>
-                <th>Phone</th>
-                <th>Status</th>
-                <th>Actions</th>
+                <th data-i18n="common.id">ID</th>
+                <th data-i18n="common.photo">Photo</th>
+                <th data-i18n="common.name">Name</th>
+                <th data-i18n="common.email">Email</th>
+                <th data-i18n="schools.phone">Phone</th>
+                <th data-i18n="common.status">Status</th>
+                <th data-i18n="common.actions">Actions</th>
             </tr>
             </thead>
             <tbody>
             <tr th:each="school : ${schools}"
-                th:attr="data-search=${school.name + ' ' + school.email + ' ' + school.uuid}">
-                <td><code class="id-chip" th:title="${school.uuid}" th:text="${#strings.substring(school.uuid.toString(),0,8)}">id</code></td>
+                th:attr="data-search=${school.name + ' ' + school.email + ' ' + school.uuid},
+                         data-name=${school.name}">
+                <td><code class="id-chip" th:title="${school.uuid}" th:text="${#strings.substring(school.uuid.toString(),0,3) + '...'}">abc...</code></td>
                 <td>
                     <img th:if="${school.hasLogo}"
                          class="avatar-photo"

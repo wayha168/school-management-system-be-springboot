@@ -1,7 +1,10 @@
 package com.project.school_management.service.attendance;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import org.springframework.security.access.AccessDeniedException;
@@ -12,9 +15,11 @@ import com.project.school_management.dto.attendance.AttendanceBatchRequest;
 import com.project.school_management.dto.attendance.AttendanceMarkItem;
 import com.project.school_management.dto.attendance.AttendanceRequest;
 import com.project.school_management.dto.attendance.AttendanceResponse;
+import com.project.school_management.dto.dashboard.ChartSeries;
 import com.project.school_management.entities.AttendanceRecord;
 import com.project.school_management.entities.SchoolClass;
 import com.project.school_management.entities.User;
+import com.project.school_management.enums.AttendanceStatus;
 import com.project.school_management.enums.RoleName;
 import com.project.school_management.exception.ExceptionNotFound;
 import com.project.school_management.repository.AttendanceRecordRepository;
@@ -52,7 +57,14 @@ public class AttendanceServiceImpl implements AttendanceService {
             scopedUser = current.getUuid();
         }
         UUID finalUser = scopedUser;
-        return attendanceRepository.findFiltered(date, classUuid, scopedUser).stream()
+        boolean filterDate = date != null;
+        boolean filterClass = classUuid != null;
+        boolean filterUser = scopedUser != null;
+        return attendanceRepository.findFiltered(
+                        filterDate, filterDate ? date : LocalDate.EPOCH,
+                        filterClass, filterClass ? classUuid : current.getUuid(),
+                        filterUser, filterUser ? scopedUser : current.getUuid())
+                .stream()
                 .filter(a -> inScope(a))
                 .filter(a -> role != RoleName.TEACHER || teachesOrSelf(current, a, finalUser))
                 .map(AttendanceResponse::from)
@@ -127,6 +139,66 @@ public class AttendanceServiceImpl implements AttendanceService {
             assertStaffOrAdmin(current);
         }
         attendanceRepository.delete(record);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public ChartSeries lastMonthChart(int days) {
+        return buildMonthChart(list(null, null, null), days);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public ChartSeries classMonthChart(UUID classUuid, int days) {
+        return buildMonthChart(list(null, classUuid, null), days);
+    }
+
+    private ChartSeries buildMonthChart(List<AttendanceResponse> rows, int days) {
+        int window = Math.max(1, Math.min(days, 90));
+        LocalDate end = LocalDate.now();
+        LocalDate start = end.minusDays(window - 1L);
+        Map<LocalDate, int[]> counters = new LinkedHashMap<>();
+        for (LocalDate d = start; !d.isAfter(end); d = d.plusDays(1)) {
+            counters.put(d, new int[] { 0, 0, 0 });
+        }
+        for (AttendanceResponse row : rows) {
+            if (row.getAttendanceDate() == null
+                    || row.getAttendanceDate().isBefore(start)
+                    || row.getAttendanceDate().isAfter(end)) {
+                continue;
+            }
+            int[] c = counters.get(row.getAttendanceDate());
+            if (c == null) {
+                continue;
+            }
+            AttendanceStatus status = row.getStatus();
+            if (status == AttendanceStatus.PRESENT) {
+                c[0]++;
+            } else if (status == AttendanceStatus.ABSENT) {
+                c[1]++;
+            } else if (status == AttendanceStatus.LATE || status == AttendanceStatus.EXCUSED) {
+                c[2]++;
+            }
+        }
+        List<String> labels = new ArrayList<>();
+        List<Number> present = new ArrayList<>();
+        List<Number> absent = new ArrayList<>();
+        List<Number> late = new ArrayList<>();
+        List<Number> totals = new ArrayList<>();
+        for (Map.Entry<LocalDate, int[]> e : counters.entrySet()) {
+            labels.add(e.getKey().getMonthValue() + "/" + e.getKey().getDayOfMonth());
+            present.add(e.getValue()[0]);
+            absent.add(e.getValue()[1]);
+            late.add(e.getValue()[2]);
+            totals.add(e.getValue()[0] + e.getValue()[1] + e.getValue()[2]);
+        }
+        return ChartSeries.builder()
+                .labels(labels)
+                .values(totals)
+                .present(present)
+                .absent(absent)
+                .late(late)
+                .build();
     }
 
     private AttendanceRecord findOrCreate(User user, SchoolClass schoolClass, LocalDate date) {

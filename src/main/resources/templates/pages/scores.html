@@ -7,23 +7,24 @@
     <div class="page-toolbar">
         <div class="page-toolbar-main">
             <div>
-                <h2 class="page-heading">Scores</h2>
-                <p class="muted">View student scores by generation and class</p>
+                <h2 class="page-heading" data-i18n="scores.title">Scores</h2>
+                <p class="muted" data-i18n="scores.subtitle">Pick session &amp; class, then review score rows</p>
             </div>
             <div class="page-toolbar-actions">
                 <div class="page-toolbar-left">
                     <input type="search" class="search-input" placeholder="Search student or subject..."
+                           data-i18n-placeholder="scores.search"
                            data-table-search="scores-table" aria-label="Search scores">
                     <form class="filter-bar" method="get" th:action="@{/admin/scores}">
-                        <select name="generation" onchange="this.form.submit()" aria-label="Filter by generation">
-                            <option value="">All generations</option>
+                        <select name="generation" onchange="this.form.submit()" aria-label="Session">
+                            <option value="" data-i18n="scores.allSessions">All sessions</option>
                             <option th:each="g : ${generations}"
                                     th:value="${g}"
                                     th:selected="${selectedGeneration != null and selectedGeneration == g}"
-                                    th:text="${'G' + g}">G9</option>
+                                    th:text="${'G' + g + ' session'}">G9 session</option>
                         </select>
-                        <select name="classUuid" onchange="this.form.submit()" aria-label="Filter by class">
-                            <option value="">All classes</option>
+                        <select name="classUuid" onchange="this.form.submit()" aria-label="Class">
+                            <option value="" data-i18n="scores.selectClass">Select class</option>
                             <option th:each="c : ${classes}"
                                     th:value="${c.uuid}"
                                     th:selected="${selectedClassUuid != null and selectedClassUuid == c.uuid}"
@@ -33,34 +34,46 @@
                 </div>
                 <div class="page-toolbar-right">
                     <a class="btn btn-ghost"
-                       th:href="@{/admin/scores/export(classUuid=${selectedClassUuid}, generation=${selectedGeneration})}">Export Excel</a>
+                       th:href="@{/admin/scores/export(classUuid=${selectedClassUuid}, generation=${selectedGeneration})}"
+                       data-i18n="scores.export">Export Excel</a>
                     <a class="btn btn-ghost" sec:authorize="hasAuthority('SCORE_WRITE')"
-                       th:href="@{/admin/scores/import}">Import Excel</a>
+                       th:href="@{/admin/scores/import}" data-i18n="scores.import">Import Excel</a>
+                    <a class="btn btn-soft" sec:authorize="hasAuthority('SCORE_WRITE')"
+                       th:href="@{/admin/scores/session(classUuid=${selectedClassUuid}, generation=${selectedGeneration})}"
+                       data-i18n="scores.sessionBtn">Score session</a>
                     <a class="btn btn-dark" sec:authorize="hasAuthority('SCORE_WRITE')"
-                       th:href="@{/admin/scores/new}">Add Score</a>
+                       th:href="@{/admin/scores/new}" data-i18n="scores.add">Add Score</a>
                 </div>
             </div>
         </div>
     </div>
 
-    <div class="table-wrap">
+    <article class="panel-card" th:if="${requireClassPick}" style="margin-bottom:14px">
+        <p class="muted" style="margin:0" data-i18n="scores.pickHint">Select a session and class to load score rows for that class.</p>
+    </article>
+
+    <div class="table-wrap" th:unless="${requireClassPick}">
         <table class="data-table" id="scores-table">
             <thead>
             <tr>
-                <th>Student</th>
-                <th>Class</th>
-                <th>Generation</th>
-                <th>Subject</th>
-                <th>Term</th>
-                <th>Score</th>
-                <th>Teacher</th>
-                <th>Actions</th>
+                <th data-i18n="dash.student">Student</th>
+                <th data-i18n="dash.class">Class</th>
+                <th data-i18n="scores.session">Session</th>
+                <th data-i18n="scores.subject">Subject</th>
+                <th data-i18n="scores.term">Term</th>
+                <th data-i18n="scores.score">Score</th>
+                <th data-i18n="scores.teacher">Teacher</th>
+                <th data-i18n="common.actions">Actions</th>
             </tr>
             </thead>
             <tbody>
             <tr th:each="item : ${scores}"
-                th:attr="data-search=${item.studentName + ' ' + item.subject + ' ' + item.className + ' ' + item.term}">
-                <td th:text="${item.studentName}">Student</td>
+                th:attr="data-search=${item.studentName + ' ' + item.subject + ' ' + item.className + ' ' + item.term},
+                         data-name=${item.studentName}">
+                <td>
+                    <a th:href="@{/admin/grades/{id}(id=${item.studentUuid}, generation=${selectedGeneration}, classUuid=${selectedClassUuid})}"
+                       th:text="${item.studentName}">Student</a>
+                </td>
                 <td th:text="${item.className}">Class</td>
                 <td><span class="gen-chip" th:text="${item.generation != null} ? ${'G' + item.generation} : '—'">G9</span></td>
                 <td th:text="${item.subject}">Math</td>
@@ -86,7 +99,7 @@
                     </div>
                 </td>
             </tr>
-            <tr th:if="${#lists.isEmpty(scores)}"><td colspan="8">No scores yet.</td></tr>
+            <tr th:if="${#lists.isEmpty(scores)}"><td colspan="8" data-i18n="scores.empty">No scores for this class/session.</td></tr>
             </tbody>
         </table>
     </div>

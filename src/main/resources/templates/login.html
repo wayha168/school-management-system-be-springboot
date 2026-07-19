@@ -7,22 +7,40 @@
     <title>Login | School Management</title>
     <link rel="icon" type="image/svg+xml" th:href="@{/favicon.svg}">
     <link rel="shortcut icon" th:href="@{/favicon.svg}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Khmer&family=Moul&family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
     <link rel="stylesheet" th:href="@{/css/app.css}">
+    <script>
+        (function () {
+            try {
+                var t = localStorage.getItem('sm-theme') === 'dark' ? 'dark' : 'light';
+                var l = localStorage.getItem('sm-lang') === 'km' ? 'km' : 'en';
+                document.documentElement.setAttribute('data-theme', t);
+                document.documentElement.setAttribute('data-lang', l);
+                document.documentElement.lang = l;
+            } catch (e) {}
+        })();
+    </script>
 </head>
 
 <body class="auth-body">
-    <main class="auth-card">
-        <p class="brand">School Management</p>
-        <h1 class="header-login">Admin sign in</h1>
+    <div class="prefs-switch-login">
+        <div th:replace="~{components/prefs-switch :: prefs}"></div>
+    </div>
 
-        <div th:if="${param.error}" class="alert error">Invalid email or password.</div>
-        <div th:if="${param.logout}" class="alert ok">You have been logged out.</div>
+    <main class="auth-card">
+        <p class="brand" data-i18n="brand.name">School Management</p>
+        <h1 class="header-login" data-i18n="login.title">Admin sign in</h1>
+
+        <div th:if="${param.error}" class="alert error" data-i18n="login.error">Invalid email or password.</div>
+        <div th:if="${param.logout}" class="alert ok" data-i18n="login.logout">You have been logged out.</div>
 
         <form th:action="@{/login}" method="post">
-            <label for="username">Email</label>
+            <label for="username" data-i18n="login.email">Email</label>
             <input id="username" name="username" type="email" required placeholder="admin@school.com" autocomplete="username">
 
-            <label for="password">Password</label>
+            <label for="password" data-i18n="login.password">Password</label>
             <div class="password-field">
                 <input id="password" name="password" type="password" required placeholder="••••••••" autocomplete="current-password">
                 <button type="button"
@@ -45,15 +63,10 @@
                 </button>
             </div>
 
-            <button type="submit" class="login-submit">Login</button>
+            <button type="submit" class="login-submit" data-i18n="login.submit">Login</button>
         </form>
-
-        <!-- <div class="seed-accounts">
-            <p class="seed-title">Template accounts</p>
-            <p><strong>Super Admin</strong> — superadmin@school.com / superadmin123</p>
-            <p><strong>Admin</strong> — admin@school.com / admin123</p>
-        </div> -->
     </main>
+    <script th:src="@{/js/prefs.js}"></script>
     <script th:src="@{/js/password-toggle.js}"></script>
 </body>
 
