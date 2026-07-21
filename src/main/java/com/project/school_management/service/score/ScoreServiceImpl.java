@@ -1,78 +1,93 @@
 package com.project.school_management.service.score;
 
 import java.math.BigDecimal;
-import java.math.RoundingMode;
+import java.time.YearMonth;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.security.access.AccessDeniedException;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.GrantedAuthority;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import com.project.school_management.dto.attendance.ClassAttendanceOverview;
 import com.project.school_management.dto.dashboard.ChartSeries;
 import com.project.school_management.dto.dashboard.GpaSummaryStats;
 import com.project.school_management.dto.dashboard.TopStudentRow;
+import com.project.school_management.dto.schoolclass.SchoolClassResponse;
 import com.project.school_management.dto.score.ScoreBatchRequest;
 import com.project.school_management.dto.score.ScoreMarkItem;
 import com.project.school_management.dto.score.ScoreRequest;
 import com.project.school_management.dto.score.ScoreResponse;
 import com.project.school_management.dto.score.StudentGpaResponse;
-import com.project.school_management.dto.score.SubjectGradeSummary;
+import com.project.school_management.dto.user.DataUser;
+import com.project.school_management.dto.user.UserClassItem;
+import com.project.school_management.dto.user.UserResponse;
 import com.project.school_management.entities.SchoolClass;
-import com.project.school_management.entities.StudentScore;
 import com.project.school_management.entities.User;
 import com.project.school_management.enums.RoleName;
 import com.project.school_management.exception.ExceptionNotFound;
 import com.project.school_management.repository.SchoolClassRepository;
-import com.project.school_management.repository.StudentScoreRepository;
 import com.project.school_management.repository.UserRepository;
 import com.project.school_management.security.SchoolScopeService;
-import com.project.school_management.util.GradeScale;
+import com.project.school_management.service.schoolclass.SchoolClassService;
+import com.project.school_management.service.user.UserService;
 
+/**
+ * BFF score service: validates school/class membership locally, persists via assessment microservice.
+ */
 @Service
 @Transactional
 public class ScoreServiceImpl implements ScoreService {
 
-    private final StudentScoreRepository scoreRepository;
+    private final AssessmentClient assessmentClient;
     private final UserRepository userRepository;
     private final SchoolClassRepository schoolClassRepository;
     private final SchoolScopeService schoolScopeService;
+    private final SchoolClassService schoolClassService;
+    private final UserService userService;
     private final ObjectProvider<ScoreExcelService> excelService;
 
     public ScoreServiceImpl(
-            StudentScoreRepository scoreRepository,
+            AssessmentClient assessmentClient,
             UserRepository userRepository,
             SchoolClassRepository schoolClassRepository,
             SchoolScopeService schoolScopeService,
+            SchoolClassService schoolClassService,
+            UserService userService,
             ObjectProvider<ScoreExcelService> excelService) {
-        this.scoreRepository = scoreRepository;
+        this.assessmentClient = assessmentClient;
         this.userRepository = userRepository;
         this.schoolClassRepository = schoolClassRepository;
         this.schoolScopeService = schoolScopeService;
+        this.schoolClassService = schoolClassService;
+        this.userService = userService;
         this.excelService = excelService;
     }
 
     @Override
     public ScoreResponse create(ScoreRequest request) {
-        StudentScore score = map(new StudentScore(), request);
-        return ScoreResponse.from(scoreRepository.save(score));
+        validateScoreBounds(request.getScore(), request.getMaxScore());
+        Map<String, Object> body = buildUpsertBody(request);
+        return assessmentClient.create(body).toDto();
     }
 
     @Override
     public ScoreResponse update(UUID id, ScoreRequest request) {
-        StudentScore score = findScore(id);
-        assertCanManage(score.getSchoolClass());
-        map(score, request);
-        return ScoreResponse.from(scoreRepository.save(score));
+        validateScoreBounds(request.getScore(), request.getMaxScore());
+        Map<String, Object> body = buildUpsertBody(request);
+        return assessmentClient.update(id, body).toDto();
     }
 
     @Override
@@ -80,61 +95,90 @@ public class ScoreServiceImpl implements ScoreService {
         if (request == null || request.getItems() == null || request.getItems().isEmpty()) {
             throw new IllegalArgumentException("No student scores to save");
         }
-        String defaultSubject = blankToNull(request.getSubject());
-        String term = blankTo(request.getTerm(), "Term 1");
+        SchoolClass schoolClass = schoolClassRepository.findDetailedById(request.getClassUuid())
+                .orElseThrow(() -> new ExceptionNotFound("Class not found: " + request.getClassUuid()));
+        assertCanManage(schoolClass);
+        User teacher = schoolScopeService.requireCurrentUser();
+
         BigDecimal maxScore = request.getMaxScore() == null ? BigDecimal.valueOf(100) : request.getMaxScore();
         if (maxScore.compareTo(BigDecimal.ZERO) <= 0) {
             throw new IllegalArgumentException("Max score must be greater than 0");
         }
 
-        SchoolClass schoolClass = schoolClassRepository.findDetailedById(request.getClassUuid())
-                .orElseThrow(() -> new ExceptionNotFound("Class not found: " + request.getClassUuid()));
-        assertCanManage(schoolClass);
-
-        int saved = 0;
+        List<Map<String, Object>> items = new ArrayList<>();
         for (ScoreMarkItem item : request.getItems()) {
             if (item == null || item.getStudentUuid() == null || item.getScore() == null) {
                 continue;
             }
-            String subject = blankToNull(item.getSubject());
-            if (subject == null) {
-                subject = defaultSubject;
-            }
-            if (subject == null) {
-                throw new IllegalArgumentException("Subject is required");
-            }
-            if (item.getScore().compareTo(BigDecimal.ZERO) < 0) {
-                throw new IllegalArgumentException("Score cannot be negative");
-            }
-            if (item.getScore().compareTo(maxScore) > 0) {
-                throw new IllegalArgumentException("Score cannot exceed max score (" + maxScore + ")");
-            }
-
-            StudentScore existing = scoreRepository
-                    .findByStudentClassSubjectTerm(item.getStudentUuid(), schoolClass.getUuid(), subject, term)
-                    .orElse(null);
-
-            ScoreRequest single = new ScoreRequest();
-            single.setStudentUuid(item.getStudentUuid());
-            single.setClassUuid(schoolClass.getUuid());
-            single.setSubject(subject);
-            single.setTerm(term);
-            single.setScore(item.getScore());
-            single.setMaxScore(maxScore);
-            single.setRemark(item.getRemark());
-
-            if (existing == null) {
-                scoreRepository.save(map(new StudentScore(), single));
-            } else {
-                assertCanManage(existing.getSchoolClass());
-                scoreRepository.save(map(existing, single));
-            }
-            saved++;
+            validateScoreBounds(item.getScore(), maxScore);
+            User student = requireStudentInClass(item.getStudentUuid(), schoolClass);
+            Map<String, Object> row = new HashMap<>();
+            row.put("studentUuid", student.getUuid());
+            row.put("studentName", student.getName());
+            row.put("studentEmail", student.getEmail());
+            row.put("studentGrade", student.getGrade());
+            row.put("subject", item.getSubject());
+            row.put("score", item.getScore());
+            row.put("remark", item.getRemark());
+            items.add(row);
         }
-        if (saved == 0) {
+        if (items.isEmpty()) {
             throw new IllegalArgumentException("Enter at least one student score");
         }
-        return saved;
+
+        Map<String, Object> body = new HashMap<>();
+        body.put("classUuid", schoolClass.getUuid());
+        body.put("className", schoolClass.getName());
+        body.put("generation", schoolClass.getGeneration());
+        body.put("academicYear", schoolClass.getAcademicYear());
+        body.put("schoolUuid", schoolClass.getSchool() != null ? schoolClass.getSchool().getUuid() : null);
+        body.put("teacherUuid", teacher.getUuid());
+        body.put("teacherName", teacher.getName());
+        body.put("subject", request.getSubject());
+        body.put("term", request.getTerm());
+        body.put("maxScore", maxScore);
+        body.put("items", items);
+        return assessmentClient.upsertBatch(body);
+    }
+
+    @Override
+    public int upsertClassSession(
+            UUID classUuid,
+            String period,
+            String subject,
+            BigDecimal maxScore,
+            List<UUID> studentUuids,
+            List<String> entryScores) {
+        if (subject == null || subject.isBlank()) {
+            throw new IllegalArgumentException("Select a subject before saving");
+        }
+        if (studentUuids == null || entryScores == null) {
+            throw new IllegalArgumentException("No score rows submitted");
+        }
+        String term = resolveTermFromPeriod(period);
+        ScoreBatchRequest batch = new ScoreBatchRequest();
+        batch.setClassUuid(classUuid);
+        batch.setTerm(term);
+        batch.setSubject(subject.trim());
+        batch.setMaxScore(maxScore);
+        List<ScoreMarkItem> items = new ArrayList<>();
+        int n = Math.min(studentUuids.size(), entryScores.size());
+        for (int i = 0; i < n; i++) {
+            String raw = entryScores.get(i);
+            if (raw == null || raw.isBlank()) {
+                continue;
+            }
+            ScoreMarkItem item = new ScoreMarkItem();
+            item.setStudentUuid(studentUuids.get(i));
+            item.setSubject(subject.trim());
+            item.setScore(new BigDecimal(raw.trim()));
+            items.add(item);
+        }
+        if (items.isEmpty()) {
+            throw new IllegalArgumentException("Enter at least one student score before saving");
+        }
+        batch.setItems(items);
+        return upsertBatch(batch);
     }
 
     @Override
@@ -143,75 +187,70 @@ public class ScoreServiceImpl implements ScoreService {
         if (classUuid == null) {
             return List.of();
         }
-        String resolvedTerm = blankTo(term, "Term 1");
-        if (subject == null || subject.isBlank()) {
-            return scoreRepository.findDetailedByClassUuid(classUuid).stream()
-                    .filter(s -> s.getTerm() != null
-                            && s.getTerm().trim().equalsIgnoreCase(resolvedTerm))
-                    .filter(this::scoreInScope)
-                    .map(ScoreResponse::from)
-                    .toList();
+        SchoolClass schoolClass = schoolClassRepository.findDetailedById(classUuid)
+                .orElseThrow(() -> new ExceptionNotFound("Class not found: " + classUuid));
+        assertCanManage(schoolClass);
+        return AssessmentClient.toDtos(assessmentClient.listForSession(classUuid, subject, term));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Map<UUID, ScoreResponse> scoresByStudentForSession(UUID classUuid, String subject, String term) {
+        if (classUuid == null || subject == null || subject.isBlank()) {
+            return Map.of();
         }
-        return scoreRepository
-                .findDetailedByClassSubjectTerm(classUuid, subject.trim(), resolvedTerm)
-                .stream()
-                .filter(this::scoreInScope)
-                .map(ScoreResponse::from)
-                .toList();
+        return listForSession(classUuid, subject, term).stream()
+                .filter(s -> s.getStudentUuid() != null)
+                .collect(Collectors.toMap(
+                        ScoreResponse::getStudentUuid,
+                        s -> s,
+                        (a, b) -> a,
+                        LinkedHashMap::new));
     }
 
     @Override
     @Transactional(readOnly = true)
     public ScoreResponse getById(UUID id) {
-        StudentScore score = findScore(id);
-        if (score.getSchoolClass() != null && score.getSchoolClass().getSchool() != null) {
-            schoolScopeService.assertSchoolAccess(score.getSchoolClass().getSchool().getUuid());
-        }
-        return ScoreResponse.from(score);
+        return assessmentClient.getById(id).toDto();
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<ScoreResponse> list(UUID classUuid, Integer generation) {
-        List<StudentScore> scores;
-        if (classUuid != null && generation != null) {
-            scores = scoreRepository.findDetailedByClassUuidAndGeneration(classUuid, generation);
-        } else if (classUuid != null) {
-            scores = scoreRepository.findDetailedByClassUuid(classUuid);
-        } else if (generation != null) {
-            scores = scoreRepository.findDetailedByGeneration(generation);
-        } else {
-            User current = schoolScopeService.requireCurrentUser();
-            RoleName role = current.getRole() != null ? current.getRole().getName() : null;
-            if (role == RoleName.TEACHER) {
-                scores = scoreRepository.findDetailedByTeacherUuid(current.getUuid());
-            } else if (role == RoleName.STUDENT) {
-                scores = scoreRepository.findDetailedByStudentUuid(current.getUuid());
-            } else {
-                scores = scoreRepository.findAllDetailed();
-            }
-        }
-        return scores.stream()
-                .filter(this::scoreInScope)
-                .map(ScoreResponse::from)
-                .toList();
+        return AssessmentClient.toDtos(assessmentClient.list(classUuid, generation));
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<ScoreResponse> listByStudent(UUID studentUuid, Integer generation, String term) {
-        return loadStudentScores(studentUuid, generation, term).stream()
-                .map(ScoreResponse::from)
-                .toList();
+        assertCanViewStudent(studentUuid);
+        return AssessmentClient.toDtos(assessmentClient.listByStudent(studentUuid, generation, term));
     }
 
     @Override
     @Transactional(readOnly = true)
     public StudentGpaResponse getStudentGpa(UUID studentUuid, Integer generation, String term) {
-        List<StudentScore> scores = loadStudentScores(studentUuid, generation, term);
-        User student = userRepository.findDetailedById(studentUuid)
-                .orElseThrow(() -> new ExceptionNotFound("Student not found: " + studentUuid));
-        return buildGpa(student, scores, generation, term);
+        assertCanViewStudent(studentUuid);
+        StudentGpaResponse gpa = assessmentClient.getStudentGpa(studentUuid, generation, term);
+        if (gpa != null && (gpa.getStudentName() == null || gpa.getStudentEmail() == null)) {
+            User student = userRepository.findDetailedById(studentUuid).orElse(null);
+            if (student != null) {
+                return StudentGpaResponse.builder()
+                        .studentUuid(gpa.getStudentUuid() != null ? gpa.getStudentUuid() : studentUuid)
+                        .studentName(gpa.getStudentName() != null ? gpa.getStudentName() : student.getName())
+                        .studentEmail(gpa.getStudentEmail() != null ? gpa.getStudentEmail() : student.getEmail())
+                        .generation(gpa.getGeneration())
+                        .term(gpa.getTerm())
+                        .gpa(gpa.getGpa())
+                        .averagePercent(gpa.getAveragePercent())
+                        .letterGrade(gpa.getLetterGrade())
+                        .totalScores(gpa.getTotalScores())
+                        .subjects(gpa.getSubjects())
+                        .scores(gpa.getScores())
+                        .build();
+            }
+        }
+        return gpa;
     }
 
     @Override
@@ -230,9 +269,7 @@ public class ScoreServiceImpl implements ScoreService {
 
     @Override
     public void delete(UUID id) {
-        StudentScore score = findScore(id);
-        assertCanManage(score.getSchoolClass());
-        scoreRepository.delete(score);
+        assessmentClient.delete(id);
     }
 
     @Override
@@ -251,32 +288,44 @@ public class ScoreServiceImpl implements ScoreService {
             User student = userRepository.findByEmail(email)
                     .orElseThrow(() -> new ExceptionNotFound("Student not found: " + email));
             request.setStudentUuid(student.getUuid());
-            create(request);
+            // Upsert via batch of one to avoid unique-constraint create failures
+            ScoreBatchRequest batch = new ScoreBatchRequest();
+            batch.setClassUuid(classUuid);
+            batch.setSubject(request.getSubject());
+            batch.setTerm(request.getTerm());
+            batch.setMaxScore(request.getMaxScore());
+            ScoreMarkItem item = new ScoreMarkItem();
+            item.setStudentUuid(student.getUuid());
+            item.setSubject(request.getSubject());
+            item.setScore(request.getScore());
+            item.setRemark(request.getRemark());
+            batch.setItems(List.of(item));
+            upsertBatch(batch);
         });
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<Integer> listScoreGenerations() {
-        return scoreRepository.findDistinctGenerations();
+        return assessmentClient.listGenerations(null);
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<String> listScoreTerms() {
-        return scoreRepository.findDistinctTerms();
+        return assessmentClient.listTerms(null);
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<Integer> listScoreGenerationsForStudent(UUID studentUuid) {
-        return scoreRepository.findDistinctGenerationsByStudent(studentUuid);
+        return assessmentClient.listGenerations(studentUuid);
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<String> listScoreTermsForStudent(UUID studentUuid) {
-        return scoreRepository.findDistinctTermsByStudent(studentUuid);
+        return assessmentClient.listTerms(studentUuid);
     }
 
     @Override
@@ -285,226 +334,91 @@ public class ScoreServiceImpl implements ScoreService {
         if (generation == null) {
             return List.of();
         }
-        return scoreRepository.findStudentUuidsByGeneration(generation);
+        return assessmentClient.listStudentUuids(generation);
     }
 
     @Override
     @Transactional(readOnly = true)
     public GpaSummaryStats gpaSummary() {
-        List<StudentAgg> aggs = aggregateStudentGpas(scopedScores());
-        if (aggs.isEmpty()) {
-            return GpaSummaryStats.builder()
-                    .averageGpa(BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP))
-                    .averagePercent(BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP))
-                    .studentsWithScores(0)
-                    .totalScoreRows(0)
-                    .topLetter("—")
-                    .build();
+        try {
+            GpaSummaryStats stats = assessmentClient.gpaSummary();
+            return stats != null ? stats : emptyGpaSummary();
+        } catch (Exception ex) {
+            return emptyGpaSummary();
         }
-        BigDecimal gpaSum = BigDecimal.ZERO;
-        BigDecimal pctSum = BigDecimal.ZERO;
-        int rows = 0;
-        Map<String, Integer> letters = new LinkedHashMap<>();
-        for (StudentAgg a : aggs) {
-            gpaSum = gpaSum.add(a.gpa);
-            pctSum = pctSum.add(a.avgPercent);
-            rows += a.scoreCount;
-            letters.merge(a.letter, 1, Integer::sum);
-        }
-        String topLetter = letters.entrySet().stream()
-                .max(Map.Entry.comparingByValue())
-                .map(Map.Entry::getKey)
-                .orElse("—");
-        int n = aggs.size();
-        return GpaSummaryStats.builder()
-                .averageGpa(gpaSum.divide(BigDecimal.valueOf(n), 2, RoundingMode.HALF_UP))
-                .averagePercent(pctSum.divide(BigDecimal.valueOf(n), 2, RoundingMode.HALF_UP))
-                .studentsWithScores(n)
-                .totalScoreRows(rows)
-                .topLetter(topLetter)
-                .build();
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<TopStudentRow> topStudentsByClass() {
-        return topByGroup(aggregateStudentGpas(scopedScores()), true);
+        try {
+            return assessmentClient.topByClass();
+        } catch (Exception ex) {
+            return List.of();
+        }
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<TopStudentRow> topStudentsByGrade() {
-        return topByGroup(aggregateStudentGpas(scopedScores()), false);
+        try {
+            return assessmentClient.topByGrade();
+        } catch (Exception ex) {
+            return List.of();
+        }
     }
 
     @Override
     @Transactional(readOnly = true)
     public ChartSeries termScoreChart() {
-        List<StudentScore> scores = scopedScores();
-        Map<String, List<BigDecimal>> buckets = new LinkedHashMap<>();
-        buckets.put("Midterm", new ArrayList<>());
-        buckets.put("Final", new ArrayList<>());
-        buckets.put("Other", new ArrayList<>());
-        for (StudentScore score : scores) {
-            String term = score.getTerm() == null ? "" : score.getTerm().trim().toLowerCase(Locale.ROOT);
-            String bucket;
-            if (term.contains("mid")) {
-                bucket = "Midterm";
-            } else if (term.contains("final")) {
-                bucket = "Final";
-            } else if (!term.isBlank()) {
-                bucket = score.getTerm().trim();
-                buckets.putIfAbsent(bucket, new ArrayList<>());
-            } else {
-                bucket = "Other";
-            }
-            buckets.get(bucket).add(GradeScale.percent(score.getScore(), score.getMaxScore()));
+        try {
+            ChartSeries chart = assessmentClient.termChart();
+            return chart != null ? chart : ChartSeries.builder().labels(List.of()).values(List.of()).build();
+        } catch (Exception ex) {
+            return ChartSeries.builder().labels(List.of()).values(List.of()).build();
         }
-        List<String> labels = new ArrayList<>();
-        List<Number> values = new ArrayList<>();
-        for (Map.Entry<String, List<BigDecimal>> e : buckets.entrySet()) {
-            if (e.getValue().isEmpty() && !List.of("Midterm", "Final").contains(e.getKey())) {
-                continue;
-            }
-            labels.add(e.getKey());
-            if (e.getValue().isEmpty()) {
-                values.add(0);
-            } else {
-                BigDecimal sum = e.getValue().stream().reduce(BigDecimal.ZERO, BigDecimal::add);
-                values.add(sum.divide(BigDecimal.valueOf(e.getValue().size()), 2, RoundingMode.HALF_UP));
-            }
-        }
-        return ChartSeries.builder().labels(labels).values(values).build();
     }
 
-    private List<StudentScore> scopedScores() {
-        List<StudentScore> all = scoreRepository.findAllDetailed();
-        return all.stream().filter(this::scoreInScope).toList();
+    private static GpaSummaryStats emptyGpaSummary() {
+        return GpaSummaryStats.builder()
+                .averageGpa(BigDecimal.ZERO)
+                .averagePercent(BigDecimal.ZERO)
+                .studentsWithScores(0)
+                .totalScoreRows(0)
+                .topLetter("—")
+                .build();
     }
 
-    private boolean scoreInScope(StudentScore score) {
-        if (score.getSchoolClass() != null && score.getSchoolClass().getSchool() != null) {
-            boolean schoolOk = schoolScopeService.scopedSchoolUuid().isEmpty()
-                    || schoolScopeService.scopedSchoolUuid().get()
-                            .equals(score.getSchoolClass().getSchool().getUuid());
-            if (!schoolOk) {
-                return false;
-            }
-        }
-        User current = schoolScopeService.requireCurrentUser();
-        RoleName role = current.getRole() != null ? current.getRole().getName() : null;
-        if (role != RoleName.TEACHER) {
-            return true;
-        }
-        if (score.getSchoolClass() == null || current.getSchoolClasses() == null) {
-            return false;
-        }
-        UUID classUuid = score.getSchoolClass().getUuid();
-        return current.getSchoolClasses().stream().anyMatch(c -> c.getUuid().equals(classUuid));
-    }
-
-    private List<StudentAgg> aggregateStudentGpas(List<StudentScore> scores) {
-        Map<UUID, List<StudentScore>> byStudent = new LinkedHashMap<>();
-        for (StudentScore score : scores) {
-            if (score.getStudent() == null) {
-                continue;
-            }
-            byStudent.computeIfAbsent(score.getStudent().getUuid(), k -> new ArrayList<>()).add(score);
-        }
-        List<StudentAgg> result = new ArrayList<>();
-        for (Map.Entry<UUID, List<StudentScore>> entry : byStudent.entrySet()) {
-            StudentGpaResponse gpa = buildGpa(entry.getValue().get(0).getStudent(), entry.getValue(), null, null);
-            User student = entry.getValue().get(0).getStudent();
-            Map<UUID, String> classNames = new LinkedHashMap<>();
-            Map<String, String> grades = new LinkedHashMap<>();
-            for (StudentScore s : entry.getValue()) {
-                if (s.getSchoolClass() != null) {
-                    classNames.put(s.getSchoolClass().getUuid(), s.getSchoolClass().getName());
-                    String grade = student.getGrade() != null && !student.getGrade().isBlank()
-                            ? student.getGrade().trim()
-                            : (s.getSchoolClass().getGrade() != null ? s.getSchoolClass().getGrade().trim() : "—");
-                    grades.put(grade, grade);
-                }
-            }
-            if (classNames.isEmpty() && student.getSchoolClasses() != null) {
-                student.getSchoolClasses().forEach(c -> classNames.put(c.getUuid(), c.getName()));
-            }
-            if (grades.isEmpty()) {
-                String g = student.getGrade() != null && !student.getGrade().isBlank() ? student.getGrade() : "—";
-                grades.put(g, g);
-            }
-            result.add(new StudentAgg(
-                    student.getUuid(),
-                    student.getName(),
-                    gpa.getGpa(),
-                    gpa.getAveragePercent(),
-                    gpa.getLetterGrade(),
-                    gpa.getTotalScores(),
-                    classNames,
-                    grades));
-        }
-        return result;
-    }
-
-    private List<TopStudentRow> topByGroup(List<StudentAgg> aggs, boolean byClass) {
-        Map<String, TopStudentRow> best = new LinkedHashMap<>();
-        for (StudentAgg a : aggs) {
-            Map<String, String> groups = byClass
-                    ? a.classNames.entrySet().stream()
-                            .collect(java.util.stream.Collectors.toMap(
-                                    e -> e.getKey().toString(),
-                                    Map.Entry::getValue,
-                                    (x, y) -> x,
-                                    LinkedHashMap::new))
-                    : a.grades;
-            for (Map.Entry<String, String> g : groups.entrySet()) {
-                TopStudentRow existing = best.get(g.getKey());
-                if (existing == null || a.gpa.compareTo(existing.getGpa()) > 0) {
-                    best.put(g.getKey(), TopStudentRow.builder()
-                            .studentUuid(a.studentUuid)
-                            .studentName(a.studentName)
-                            .groupKey(g.getKey())
-                            .groupLabel(g.getValue())
-                            .gpa(a.gpa)
-                            .averagePercent(a.avgPercent)
-                            .letterGrade(a.letter)
-                            .build());
-                }
-            }
-        }
-        return best.values().stream()
-                .sorted((x, y) -> y.getGpa().compareTo(x.getGpa()))
-                .toList();
-    }
-
-    private record StudentAgg(
-            UUID studentUuid,
-            String studentName,
-            BigDecimal gpa,
-            BigDecimal avgPercent,
-            String letter,
-            int scoreCount,
-            Map<UUID, String> classNames,
-            Map<String, String> grades) {
-    }
-
-    private ScoreExcelService requireExcel() {
-        ScoreExcelService excel = excelService.getIfAvailable();
-        if (excel == null) {
-            throw new IllegalStateException(
-                    "Excel support unavailable. Restart the app fully after Maven refresh (Apache POI).");
-        }
-        return excel;
-    }
-
-    private StudentScore map(StudentScore score, ScoreRequest request) {
+    private Map<String, Object> buildUpsertBody(ScoreRequest request) {
         User teacher = schoolScopeService.requireCurrentUser();
         SchoolClass schoolClass = schoolClassRepository.findDetailedById(request.getClassUuid())
                 .orElseThrow(() -> new ExceptionNotFound("Class not found: " + request.getClassUuid()));
         assertCanManage(schoolClass);
+        User student = requireStudentInClass(request.getStudentUuid(), schoolClass);
 
-        User student = userRepository.findDetailedById(request.getStudentUuid())
-                .orElseThrow(() -> new ExceptionNotFound("Student not found: " + request.getStudentUuid()));
+        Map<String, Object> body = new HashMap<>();
+        body.put("studentUuid", student.getUuid());
+        body.put("studentName", student.getName());
+        body.put("studentEmail", student.getEmail());
+        body.put("studentGrade", student.getGrade());
+        body.put("schoolUuid", schoolClass.getSchool() != null ? schoolClass.getSchool().getUuid() : null);
+        body.put("classUuid", schoolClass.getUuid());
+        body.put("className", schoolClass.getName());
+        body.put("generation", schoolClass.getGeneration());
+        body.put("academicYear", schoolClass.getAcademicYear());
+        body.put("teacherUuid", teacher.getUuid());
+        body.put("teacherName", teacher.getName());
+        body.put("subject", request.getSubject());
+        body.put("term", request.getTerm());
+        body.put("score", request.getScore());
+        body.put("maxScore", request.getMaxScore() == null ? BigDecimal.valueOf(100) : request.getMaxScore());
+        body.put("remark", request.getRemark());
+        return body;
+    }
+
+    private User requireStudentInClass(UUID studentUuid, SchoolClass schoolClass) {
+        User student = userRepository.findDetailedById(studentUuid)
+                .orElseThrow(() -> new ExceptionNotFound("Student not found: " + studentUuid));
         if (student.getRole() == null || student.getRole().getName() != RoleName.STUDENT) {
             throw new IllegalArgumentException("Scores can only be assigned to students");
         }
@@ -513,16 +427,7 @@ public class ScoreServiceImpl implements ScoreService {
         if (!inClass) {
             throw new IllegalArgumentException("Student does not belong to this class");
         }
-
-        score.setStudent(student);
-        score.setSchoolClass(schoolClass);
-        score.setTeacher(teacher);
-        score.setSubject(request.getSubject().trim());
-        score.setTerm(blankTo(request.getTerm(), "Term 1"));
-        score.setScore(request.getScore());
-        score.setMaxScore(request.getMaxScore() == null ? BigDecimal.valueOf(100) : request.getMaxScore());
-        score.setRemark(blankToNull(request.getRemark()));
-        return score;
+        return student;
     }
 
     private void assertCanManage(SchoolClass schoolClass) {
@@ -541,36 +446,20 @@ public class ScoreServiceImpl implements ScoreService {
         }
     }
 
-    private List<StudentScore> loadStudentScores(UUID studentUuid, Integer generation, String term) {
-        User student = userRepository.findDetailedById(studentUuid)
-                .orElseThrow(() -> new ExceptionNotFound("Student not found: " + studentUuid));
-        assertCanViewStudentScores(student);
-
-        List<StudentScore> scores = generation == null
-                ? scoreRepository.findDetailedByStudentUuid(studentUuid)
-                : scoreRepository.findDetailedByStudentUuidAndGeneration(studentUuid, generation);
-
-        if (term != null && !term.isBlank()) {
-            String wanted = term.trim().toLowerCase(Locale.ROOT);
-            scores = scores.stream()
-                    .filter(s -> s.getTerm() != null && s.getTerm().trim().toLowerCase(Locale.ROOT).equals(wanted))
-                    .toList();
-        }
-        return scores;
-    }
-
-    private void assertCanViewStudentScores(User student) {
+    private void assertCanViewStudent(UUID studentUuid) {
         User current = schoolScopeService.requireCurrentUser();
-        if (current.getUuid().equals(student.getUuid())) {
+        RoleName role = current.getRole() != null ? current.getRole().getName() : null;
+        if (role == RoleName.STUDENT) {
+            if (!current.getUuid().equals(studentUuid)) {
+                throw new AccessDeniedException("You can only view your own scores");
+            }
             return;
         }
-        if (!hasAuthority("SCORE_READ")) {
-            throw new AccessDeniedException("You can only view your own scores");
-        }
+        User student = userRepository.findDetailedById(studentUuid)
+                .orElseThrow(() -> new ExceptionNotFound("Student not found: " + studentUuid));
         if (student.getSchool() != null) {
             schoolScopeService.assertSchoolAccess(student.getSchool().getUuid());
         }
-        RoleName role = current.getRole() != null ? current.getRole().getName() : null;
         if (role == RoleName.TEACHER) {
             boolean sharesClass = current.getSchoolClasses() != null
                     && student.getSchoolClasses() != null
@@ -583,78 +472,13 @@ public class ScoreServiceImpl implements ScoreService {
         }
     }
 
-    private static boolean hasAuthority(String authority) {
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        if (auth == null) {
-            return false;
+    private ScoreExcelService requireExcel() {
+        ScoreExcelService excel = excelService.getIfAvailable();
+        if (excel == null) {
+            throw new IllegalStateException(
+                    "Excel support unavailable. Restart the app fully after Maven refresh (Apache POI).");
         }
-        for (GrantedAuthority granted : auth.getAuthorities()) {
-            if (authority.equals(granted.getAuthority())) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private StudentGpaResponse buildGpa(User student, List<StudentScore> scores, Integer generation, String term) {
-        List<ScoreResponse> scoreResponses = scores.stream().map(ScoreResponse::from).toList();
-        Map<String, List<StudentScore>> bySubject = new LinkedHashMap<>();
-        for (StudentScore score : scores) {
-            String key = score.getSubject() == null ? "Unknown" : score.getSubject().trim();
-            bySubject.computeIfAbsent(key, k -> new ArrayList<>()).add(score);
-        }
-
-        List<SubjectGradeSummary> subjects = new ArrayList<>();
-        BigDecimal gpaSum = BigDecimal.ZERO;
-        BigDecimal percentSum = BigDecimal.ZERO;
-        int counted = 0;
-
-        for (Map.Entry<String, List<StudentScore>> entry : bySubject.entrySet()) {
-            BigDecimal subjectPercentSum = BigDecimal.ZERO;
-            for (StudentScore score : entry.getValue()) {
-                subjectPercentSum = subjectPercentSum.add(GradeScale.percent(score.getScore(), score.getMaxScore()));
-            }
-            BigDecimal avgPercent = subjectPercentSum.divide(
-                    BigDecimal.valueOf(entry.getValue().size()), 2, RoundingMode.HALF_UP);
-            BigDecimal gpaPoints = GradeScale.gpaPoints(avgPercent);
-            subjects.add(SubjectGradeSummary.builder()
-                    .subject(entry.getKey())
-                    .term(term)
-                    .averagePercent(avgPercent)
-                    .gpaPoints(gpaPoints)
-                    .letterGrade(GradeScale.letterGrade(avgPercent))
-                    .scoreCount(entry.getValue().size())
-                    .build());
-            gpaSum = gpaSum.add(gpaPoints);
-            percentSum = percentSum.add(avgPercent);
-            counted++;
-        }
-
-        BigDecimal gpa = counted == 0
-                ? BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP)
-                : gpaSum.divide(BigDecimal.valueOf(counted), 2, RoundingMode.HALF_UP);
-        BigDecimal averagePercent = counted == 0
-                ? BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP)
-                : percentSum.divide(BigDecimal.valueOf(counted), 2, RoundingMode.HALF_UP);
-
-        return StudentGpaResponse.builder()
-                .studentUuid(student.getUuid())
-                .studentName(student.getName())
-                .studentEmail(student.getEmail())
-                .generation(generation)
-                .term(term)
-                .gpa(gpa)
-                .averagePercent(averagePercent)
-                .letterGrade(GradeScale.letterGrade(averagePercent))
-                .totalScores(scores.size())
-                .subjects(subjects)
-                .scores(scoreResponses)
-                .build();
-    }
-
-    private StudentScore findScore(UUID id) {
-        return scoreRepository.findDetailedById(id)
-                .orElseThrow(() -> new ExceptionNotFound("Score not found: " + id));
+        return excel;
     }
 
     private String findEmail(UUID studentUuid) {
@@ -664,11 +488,172 @@ public class ScoreServiceImpl implements ScoreService {
         return userRepository.findById(studentUuid).map(User::getEmail).orElse("");
     }
 
-    private static String blankToNull(String value) {
-        return value == null || value.isBlank() ? null : value.trim();
+    private static void validateScoreBounds(BigDecimal score, BigDecimal maxScore) {
+        BigDecimal max = maxScore == null ? BigDecimal.valueOf(100) : maxScore;
+        if (score == null) {
+            throw new IllegalArgumentException("Score is required");
+        }
+        if (score.compareTo(BigDecimal.ZERO) < 0) {
+            throw new IllegalArgumentException("Score cannot be negative");
+        }
+        if (max.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("Max score must be greater than 0");
+        }
+        if (score.compareTo(max) > 0) {
+            throw new IllegalArgumentException("Score cannot exceed max score (" + max + ")");
+        }
     }
 
-    private static String blankTo(String value, String fallback) {
-        return value == null || value.isBlank() ? fallback : value.trim();
+    @Override
+    @Transactional(readOnly = true)
+    public List<SchoolClassResponse> visibleClassesForScoring(DataUser account, Integer generation) {
+        List<SchoolClassResponse> classes = generation == null
+                ? schoolClassService.getAll()
+                : schoolClassService.getByGeneration(generation);
+        if (account != null && account.getRole() == RoleName.TEACHER) {
+            Set<UUID> taught = account.getClasses() == null
+                    ? Set.of()
+                    : account.getClasses().stream()
+                            .map(UserClassItem::getUuid)
+                            .filter(Objects::nonNull)
+                            .collect(Collectors.toSet());
+            classes = classes.stream().filter(c -> taught.contains(c.getUuid())).toList();
+        }
+        return classes;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<ClassAttendanceOverview> buildClassOverviews(List<SchoolClassResponse> classes) {
+        List<UserResponse> allUsers = userService.getAll();
+        List<ClassAttendanceOverview> rows = new ArrayList<>();
+        for (SchoolClassResponse c : classes) {
+            List<String> teacherNames = allUsers.stream()
+                    .filter(u -> u.getRole() == RoleName.TEACHER)
+                    .filter(u -> u.getClasses() != null
+                            && u.getClasses().stream().anyMatch(cl -> c.getUuid().equals(cl.getUuid())))
+                    .map(UserResponse::getName)
+                    .filter(Objects::nonNull)
+                    .sorted()
+                    .toList();
+            int studentCount = (int) allUsers.stream()
+                    .filter(u -> u.getRole() == RoleName.STUDENT)
+                    .filter(u -> u.getClasses() != null
+                            && u.getClasses().stream().anyMatch(cl -> c.getUuid().equals(cl.getUuid())))
+                    .count();
+            String teachersLabel = teacherNames.isEmpty() ? "Unassigned" : String.join(", ", teacherNames);
+            rows.add(ClassAttendanceOverview.builder()
+                    .classUuid(c.getUuid())
+                    .className(c.getName())
+                    .grade(c.getGrade())
+                    .generation(c.getGeneration())
+                    .generationCode(c.getGenerationCode())
+                    .schoolName(c.getSchoolName())
+                    .teacherNames(teacherNames)
+                    .teachersLabel(teachersLabel)
+                    .studentCount(studentCount)
+                    .build());
+        }
+        rows.sort(Comparator.comparing(ClassAttendanceOverview::getClassName, String.CASE_INSENSITIVE_ORDER));
+        return rows;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<UserResponse> studentsInClass(UUID classUuid) {
+        return userService.getAll().stream()
+                .filter(u -> u.getRole() == RoleName.STUDENT)
+                .filter(u -> u.getClasses() != null
+                        && u.getClasses().stream().anyMatch(c -> classUuid.equals(c.getUuid())))
+                .sorted(Comparator.comparing(UserResponse::getName, String.CASE_INSENSITIVE_ORDER))
+                .toList();
+    }
+
+    @Override
+    public boolean canEnterScores(DataUser account) {
+        if (account == null || account.getRole() == null) {
+            return false;
+        }
+        return account.getRole() == RoleName.SUPERADMIN
+                || account.getRole() == RoleName.ADMIN
+                || account.getRole() == RoleName.TEACHER
+                || account.getRole() == RoleName.PRINCIPAL;
+    }
+
+    @Override
+    public String normalizePeriodKey(String period) {
+        if (period == null || period.isBlank()) {
+            return "term1";
+        }
+        String key = period.trim().toLowerCase(Locale.ROOT).replace(' ', '_');
+        return switch (key) {
+            case "monthly", "month" -> "monthly";
+            case "term2", "term_2" -> "term2";
+            case "midterm", "mid_term", "mid-term" -> "midterm";
+            case "final", "finale" -> "final";
+            case "term1", "term_1", "term" -> "term1";
+            default -> periodKeyFromTerm(period);
+        };
+    }
+
+    @Override
+    public String resolveTermFromPeriod(String periodKey) {
+        return switch (normalizePeriodKey(periodKey)) {
+            case "monthly" -> "Monthly " + YearMonth.now();
+            case "term2" -> "Term 2";
+            case "midterm" -> "Midterm";
+            case "final" -> "Final";
+            default -> "Term 1";
+        };
+    }
+
+    @Override
+    public String resolveTermFromForm(String term) {
+        if (term == null || term.isBlank()) {
+            return "Term 1";
+        }
+        String t = term.trim();
+        if (t.equalsIgnoreCase("Monthly") || t.toLowerCase(Locale.ROOT).startsWith("monthly")) {
+            return "Monthly " + YearMonth.now();
+        }
+        return resolveTermFromPeriod(periodKeyFromTerm(t));
+    }
+
+    @Override
+    public String currentMonthlyLabel() {
+        return YearMonth.now().format(DateTimeFormatter.ofPattern("MMMM yyyy", Locale.ENGLISH));
+    }
+
+    @Override
+    public String resolveSubject(List<String> classSubjects, String requestedSubject) {
+        List<String> subjects = classSubjects == null ? List.of() : classSubjects;
+        if (requestedSubject == null || requestedSubject.isBlank()) {
+            return subjects.isEmpty() ? null : subjects.get(0);
+        }
+        final String wanted = requestedSubject.trim();
+        return subjects.stream()
+                .filter(s -> s.equalsIgnoreCase(wanted))
+                .findFirst()
+                .orElse(wanted);
+    }
+
+    private static String periodKeyFromTerm(String term) {
+        if (term == null || term.isBlank()) {
+            return "term1";
+        }
+        String t = term.trim().toLowerCase(Locale.ROOT);
+        if (t.startsWith("monthly")) {
+            return "monthly";
+        }
+        if (t.equals("term 2") || t.equals("term2")) {
+            return "term2";
+        }
+        if (t.equals("midterm") || t.equals("mid term")) {
+            return "midterm";
+        }
+        if (t.equals("final")) {
+            return "final";
+        }
+        return "term1";
     }
 }

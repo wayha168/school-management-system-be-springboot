@@ -1,9 +1,11 @@
 package com.project.school_management.service.schoolclass;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -14,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.project.school_management.dto.schoolclass.SchoolClassRequest;
 import com.project.school_management.dto.schoolclass.SchoolClassResponse;
+import com.project.school_management.dto.user.UserResponse;
 import com.project.school_management.entities.SchoolClass;
 import com.project.school_management.entities.SchoolMag;
 import com.project.school_management.entities.User;
@@ -21,6 +24,7 @@ import com.project.school_management.enums.RoleName;
 import com.project.school_management.exception.ExceptionNotFound;
 import com.project.school_management.repository.SchoolClassRepository;
 import com.project.school_management.repository.SchoolRepository;
+import com.project.school_management.repository.UserRepository;
 import com.project.school_management.security.SchoolScopeService;
 
 @Service
@@ -29,14 +33,17 @@ public class SchoolClassServiceImpl implements SchoolClassService {
 
     private final SchoolClassRepository schoolClassRepository;
     private final SchoolRepository schoolRepository;
+    private final UserRepository userRepository;
     private final SchoolScopeService schoolScopeService;
 
     public SchoolClassServiceImpl(
             SchoolClassRepository schoolClassRepository,
             SchoolRepository schoolRepository,
+            UserRepository userRepository,
             SchoolScopeService schoolScopeService) {
         this.schoolClassRepository = schoolClassRepository;
         this.schoolRepository = schoolRepository;
+        this.userRepository = userRepository;
         this.schoolScopeService = schoolScopeService;
     }
 
@@ -51,7 +58,10 @@ public class SchoolClassServiceImpl implements SchoolClassService {
         schoolClass.setSchool(findSchool(request.getSchoolUuid()));
         schoolClass.setSubjects(normalizeSubjects(request.getSubjects()));
         SchoolClass saved = schoolClassRepository.save(schoolClass);
-        return SchoolClassResponse.from(findClass(saved.getUuid()));
+        if (request.getTeacherUuids() != null) {
+            syncTeachers(saved, request.getTeacherUuids());
+        }
+        return toResponse(findClass(saved.getUuid()));
     }
 
     @Override
@@ -62,7 +72,7 @@ public class SchoolClassServiceImpl implements SchoolClassService {
             schoolScopeService.assertSchoolAccess(schoolClass.getSchool().getUuid());
         }
         assertTeacherClassAccess(schoolClass.getUuid());
-        return SchoolClassResponse.from(schoolClass);
+        return toResponse(schoolClass);
     }
 
     @Override
@@ -70,13 +80,13 @@ public class SchoolClassServiceImpl implements SchoolClassService {
     public List<SchoolClassResponse> getAll() {
         List<SchoolClassResponse> classes = schoolScopeService.scopedSchoolUuid()
                 .map(uuid -> schoolClassRepository.findDetailedBySchoolUuid(uuid).stream()
-                        .map(SchoolClassResponse::from)
+                        .map(this::toResponse)
                         .toList())
                 .orElseGet(() -> schoolClassRepository.findAllDetailed().stream()
-                        .map(SchoolClassResponse::from)
+                        .map(this::toResponse)
                         .toList());
         return filterTeacherClasses(classes).stream()
-                .sorted(java.util.Comparator.comparing(
+                .sorted(Comparator.comparing(
                         c -> c.getName() == null ? "" : c.getName(),
                         String.CASE_INSENSITIVE_ORDER))
                 .toList();
@@ -87,7 +97,7 @@ public class SchoolClassServiceImpl implements SchoolClassService {
     public List<SchoolClassResponse> getBySchool(UUID schoolUuid) {
         schoolScopeService.assertSchoolAccess(schoolUuid);
         return filterTeacherClasses(schoolClassRepository.findDetailedBySchoolUuid(schoolUuid).stream()
-                .map(SchoolClassResponse::from)
+                .map(this::toResponse)
                 .toList());
     }
 
@@ -98,7 +108,7 @@ public class SchoolClassServiceImpl implements SchoolClassService {
                 .filter(c -> c.getSchool() == null
                         || schoolScopeService.scopedSchoolUuid().isEmpty()
                         || schoolScopeService.scopedSchoolUuid().get().equals(c.getSchool().getUuid()))
-                .map(SchoolClassResponse::from)
+                .map(this::toResponse)
                 .toList());
     }
 
@@ -129,7 +139,7 @@ public class SchoolClassServiceImpl implements SchoolClassService {
     public List<Integer> listGenerations() {
         return getAll().stream()
                 .map(SchoolClassResponse::getGeneration)
-                .filter(g -> g != null)
+                .filter(Objects::nonNull)
                 .distinct()
                 .sorted()
                 .toList();
@@ -161,7 +171,10 @@ public class SchoolClassServiceImpl implements SchoolClassService {
         schoolClass.setSchool(findSchool(request.getSchoolUuid()));
         schoolClass.setSubjects(normalizeSubjects(request.getSubjects()));
         schoolClassRepository.save(schoolClass);
-        return SchoolClassResponse.from(findClass(id));
+        if (request.getTeacherUuids() != null) {
+            syncTeachers(schoolClass, request.getTeacherUuids());
+        }
+        return toResponse(findClass(id));
     }
 
     @Override
@@ -170,6 +183,100 @@ public class SchoolClassServiceImpl implements SchoolClassService {
             throw new ExceptionNotFound("Class not found: " + id);
         }
         schoolClassRepository.deleteById(id);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<UserResponse> listAssignableTeachers() {
+        List<User> teachers = schoolScopeService.scopedSchoolUuid()
+                .map(uuid -> userRepository.findDetailedBySchoolUuidAndRole(uuid, RoleName.TEACHER))
+                .orElseGet(() -> userRepository.findDetailedByRole(RoleName.TEACHER));
+        return teachers.stream()
+                .map(UserResponse::from)
+                .sorted(Comparator.comparing(
+                        u -> u.getName() == null ? "" : u.getName(),
+                        String.CASE_INSENSITIVE_ORDER))
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<UserResponse> teachersForClass(UUID classUuid) {
+        SchoolClass schoolClass = findClass(classUuid);
+        if (schoolClass.getSchool() != null) {
+            schoolScopeService.assertSchoolAccess(schoolClass.getSchool().getUuid());
+        }
+        assertTeacherClassAccess(classUuid);
+        return userRepository.findDetailedByClassAndRole(classUuid, RoleName.TEACHER).stream()
+                .map(UserResponse::from)
+                .sorted(Comparator.comparing(
+                        u -> u.getName() == null ? "" : u.getName(),
+                        String.CASE_INSENSITIVE_ORDER))
+                .toList();
+    }
+
+    /**
+     * Assign / unassign teachers for a class via the owning {@code User.schoolClasses} side.
+     * Student enrollments on the same join table are left untouched.
+     */
+    private void syncTeachers(SchoolClass schoolClass, List<UUID> teacherUuids) {
+        UUID classId = schoolClass.getUuid();
+        Set<UUID> desired = teacherUuids == null
+                ? Set.of()
+                : teacherUuids.stream()
+                        .filter(Objects::nonNull)
+                        .collect(Collectors.toCollection(LinkedHashSet::new));
+
+        List<User> currentTeachers = userRepository.findDetailedByClassAndRole(classId, RoleName.TEACHER);
+        Set<UUID> currentIds = currentTeachers.stream()
+                .map(User::getUuid)
+                .collect(Collectors.toSet());
+
+        for (User teacher : currentTeachers) {
+            if (!desired.contains(teacher.getUuid())) {
+                teacher.getSchoolClasses().removeIf(c -> classId.equals(c.getUuid()));
+                userRepository.save(teacher);
+            }
+        }
+
+        for (UUID teacherId : desired) {
+            if (currentIds.contains(teacherId)) {
+                continue;
+            }
+            User teacher = userRepository.findDetailedById(teacherId)
+                    .orElseThrow(() -> new ExceptionNotFound("Teacher not found: " + teacherId));
+            if (teacher.getRole() == null || teacher.getRole().getName() != RoleName.TEACHER) {
+                throw new IllegalArgumentException("Only teachers can be assigned to a class");
+            }
+            if (teacher.getSchool() != null) {
+                schoolScopeService.assertSchoolAccess(teacher.getSchool().getUuid());
+            }
+            if (schoolClass.getSchool() != null && teacher.getSchool() != null
+                    && !schoolClass.getSchool().getUuid().equals(teacher.getSchool().getUuid())) {
+                throw new IllegalArgumentException(
+                        "Teacher " + teacher.getName() + " belongs to a different school");
+            }
+            if (teacher.getSchoolClasses() == null) {
+                teacher.setSchoolClasses(new ArrayList<>());
+            }
+            boolean already = teacher.getSchoolClasses().stream()
+                    .anyMatch(c -> classId.equals(c.getUuid()));
+            if (!already) {
+                teacher.getSchoolClasses().add(schoolClass);
+                userRepository.save(teacher);
+            }
+        }
+    }
+
+    private SchoolClassResponse toResponse(SchoolClass schoolClass) {
+        List<User> teachers = userRepository.findDetailedByClassAndRole(
+                schoolClass.getUuid(), RoleName.TEACHER);
+        List<UUID> teacherUuids = teachers.stream().map(User::getUuid).toList();
+        List<String> teacherNames = teachers.stream()
+                .map(User::getName)
+                .filter(n -> n != null && !n.isBlank())
+                .toList();
+        return SchoolClassResponse.from(schoolClass, teacherUuids, teacherNames);
     }
 
     private SchoolClass findClass(UUID id) {

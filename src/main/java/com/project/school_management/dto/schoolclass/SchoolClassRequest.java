@@ -30,4 +30,11 @@ public class SchoolClassRequest {
 
     /** Subjects taught in this class (ordered). */
     private List<String> subjects = new ArrayList<>();
+
+    /**
+     * Teachers who belong to this class.
+     * {@code null} = leave existing assignments unchanged (API);
+     * empty list = clear all teacher assignments.
+     */
+    private List<UUID> teacherUuids;
 }

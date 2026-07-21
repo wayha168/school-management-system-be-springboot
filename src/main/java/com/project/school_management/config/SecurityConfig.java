@@ -46,10 +46,12 @@ public class SecurityConfig {
                                                 "/swagger-ui/**",
                                                 "/ws/**"))
                                 .sessionManagement(session -> session
-                                                .sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
+                                .sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED)
+                                .sessionFixation(fixation -> fixation.changeSessionId()))
                                 .authorizeHttpRequests(auth -> auth
                                                 .requestMatchers(
                                                                 "/login",
+                                                                "/login/**",
                                                                 "/css/**",
                                                                 "/js/**",
                                                                 "/assets/**",

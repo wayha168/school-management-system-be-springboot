@@ -104,7 +104,19 @@ public class RequestViewController {
             model.addAttribute("statuses", RequestStatus.values());
             boolean staff = authentication.getAuthorities().stream()
                     .anyMatch(a -> "REQUEST_WRITE".equals(a.getAuthority()));
+            boolean gpaApprover = authentication.getAuthorities().stream()
+                    .anyMatch(a -> {
+                        String auth = a.getAuthority();
+                        return "ROLE_PRINCIPAL".equals(auth)
+                                || "ROLE_ADMIN".equals(auth)
+                                || "ROLE_SUPERADMIN".equals(auth);
+                    });
             model.addAttribute("staffInbox", staff);
+            model.addAttribute("gpaApprover", gpaApprover);
+            model.addAttribute("isGpaRequest", item.getCategory() == RequestCategory.GPA_VIEW);
+            model.addAttribute("gpaPending", item.getCategory() == RequestCategory.GPA_VIEW
+                    && (item.getStatus() == RequestStatus.OPEN
+                            || item.getStatus() == RequestStatus.IN_PROGRESS));
             if (item.getSchoolEmail() != null) {
                 model.addAttribute(
                         "mailtoLink",
@@ -132,6 +144,47 @@ public class RequestViewController {
             reply.setAdminReply(adminReply);
             userRequestService.reply(id, reply);
             ra.addFlashAttribute("success", "Request updated");
+        } catch (RuntimeException ex) {
+            ra.addFlashAttribute("error", ex.getMessage());
+        }
+        return "redirect:/admin/requests/" + id;
+    }
+
+    @PostMapping("/gpa")
+    public String requestGpa(RedirectAttributes ra) {
+        try {
+            userRequestService.requestGpaAccess();
+            ra.addFlashAttribute("success", "GPA request submitted. Waiting for principal or admin approval.");
+        } catch (RuntimeException ex) {
+            ra.addFlashAttribute("error", ex.getMessage());
+        }
+        return "redirect:/admin/grades";
+    }
+
+    @PostMapping("/{id}/approve")
+    @PreAuthorize("hasAuthority('REQUEST_WRITE')")
+    public String approve(
+            @PathVariable UUID id,
+            @RequestParam(required = false) String adminReply,
+            RedirectAttributes ra) {
+        try {
+            userRequestService.approve(id, adminReply);
+            ra.addFlashAttribute("success", "GPA request approved");
+        } catch (RuntimeException ex) {
+            ra.addFlashAttribute("error", ex.getMessage());
+        }
+        return "redirect:/admin/requests/" + id;
+    }
+
+    @PostMapping("/{id}/reject")
+    @PreAuthorize("hasAuthority('REQUEST_WRITE')")
+    public String reject(
+            @PathVariable UUID id,
+            @RequestParam(required = false) String adminReply,
+            RedirectAttributes ra) {
+        try {
+            userRequestService.reject(id, adminReply);
+            ra.addFlashAttribute("success", "GPA request rejected");
         } catch (RuntimeException ex) {
             ra.addFlashAttribute("error", ex.getMessage());
         }

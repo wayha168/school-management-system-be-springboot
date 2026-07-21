@@ -1,0 +1,7 @@
+target/
+.git/
+.idea/
+.cursor/
+**/node_modules/
+*.md
+docs/

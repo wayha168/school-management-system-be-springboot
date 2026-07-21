@@ -6,7 +6,7 @@
     <div class="page-toolbar">
         <div>
             <h2 class="page-heading" th:text="${mode == 'edit'} ? 'Edit Class' : 'Add Class'">Add Class</h2>
-            <p class="muted">Assign class with grade, generation (G#), academic year, and subjects</p>
+            <p class="muted">Assign class with grade, generation (G#), academic year, subjects, and teachers</p>
         </div>
         <a class="btn btn-ghost" th:href="@{/admin/classes}">Back</a>
     </div>
@@ -37,6 +37,18 @@
                             th:text="${school.name}"
                             th:selected="${item != null and item.schoolUuid == school.uuid}">School</option>
                 </select>
+            </label>
+
+            <label class="span-3">Belongs to (teachers)
+                <select name="teacherUuids" multiple size="6" aria-label="Assign teachers">
+                    <option th:each="t : ${teachers}"
+                            th:value="${t.uuid}"
+                            th:text="${t.name + ' · ' + t.email}"
+                            th:selected="${item != null and item.teacherUuids != null and item.teacherUuids.contains(t.uuid)}">
+                        Teacher
+                    </option>
+                </select>
+                <small class="muted">Hold Ctrl (Windows) or Cmd (Mac) to select multiple teachers. This class will belong to the selected teachers.</small>
             </label>
 
             <div class="span-3">

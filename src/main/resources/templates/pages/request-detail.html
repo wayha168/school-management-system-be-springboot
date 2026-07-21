@@ -25,15 +25,77 @@
                 <span class="label">Staff reply</span>
                 <p th:text="${item.adminReply}">Reply</p>
             </div>
+            <div class="span-2" th:if="${item.handledByName != null}">
+                <span class="label">Handled by</span>
+                <p th:text="${item.handledByName}">—</p>
+            </div>
         </div>
     </article>
 
-    <article class="form-card form-card-wide" style="margin-top:14px" sec:authorize="hasAuthority('REQUEST_WRITE')">
+    <!-- Principal / Admin: Approve or Reject GPA request -->
+    <article class="form-card form-card-wide" style="margin-top:14px"
+             th:if="${isGpaRequest and gpaApprover and (gpaPending or item.status.name() == 'APPROVED')}">
+        <h3 class="section-title">GPA access decision</h3>
+        <p class="muted" th:if="${gpaPending}">Approve to let this student view their GPA, or reject the request.</p>
+        <p class="muted" th:if="${item.status.name() == 'APPROVED'}">Access is approved. You can reject to revoke it.</p>
+        <div th:if="${gpaPending}" class="form-grid" style="margin-top:12px">
+            <label class="span-2">Note (optional)
+                <textarea id="gpa-reply" rows="3" placeholder="Optional message to the student..."></textarea>
+            </label>
+            <div class="modal-actions span-3">
+                <form th:action="@{/admin/requests/{id}/approve(id=${item.uuid})}" method="post" style="display:inline"
+                      onsubmit="this.querySelector('[name=adminReply]').value=document.getElementById('gpa-reply').value">
+                    <input type="hidden" name="adminReply" value="">
+                    <button type="submit" class="btn btn-dark">Approve GPA</button>
+                </form>
+                <form th:action="@{/admin/requests/{id}/reject(id=${item.uuid})}" method="post" style="display:inline"
+                      onsubmit="this.querySelector('[name=adminReply]').value=document.getElementById('gpa-reply').value">
+                    <input type="hidden" name="adminReply" value="">
+                    <button type="submit" class="btn btn-ghost">Reject</button>
+                </form>
+            </div>
+        </div>
+        <form th:if="${item.status.name() == 'APPROVED' and !gpaPending}"
+              th:action="@{/admin/requests/{id}/reject(id=${item.uuid})}" method="post" class="form-grid" style="margin-top:12px">
+            <label class="span-2">Revoke note (optional)
+                <textarea name="adminReply" rows="2" placeholder="Optional reason..."></textarea>
+            </label>
+            <div class="modal-actions span-3">
+                <button type="submit" class="btn btn-ghost">Revoke GPA access</button>
+            </div>
+        </form>
+    </article>
+
+    <article class="form-card form-card-wide" style="margin-top:14px" sec:authorize="hasAuthority('REQUEST_WRITE')"
+             th:unless="${isGpaRequest}">
         <h3 class="section-title">Staff reply</h3>
         <form th:action="@{/admin/requests/{id}/reply(id=${item.uuid})}" method="post" class="form-grid">
             <label>Status
                 <select name="status">
                     <option th:each="st : ${statuses}" th:value="${st}" th:text="${st}"
+                            th:selected="${item.status == st}">OPEN</option>
+                </select>
+            </label>
+            <label class="span-2">Reply
+                <textarea name="adminReply" rows="4" th:text="${item.adminReply}"></textarea>
+            </label>
+            <div class="modal-actions span-3">
+                <button type="submit" class="btn btn-dark">Save reply</button>
+            </div>
+        </form>
+    </article>
+
+    <!-- For GPA requests, staff who are not approvers can still add notes via reply (non-approve statuses) -->
+    <article class="form-card form-card-wide" style="margin-top:14px"
+             th:if="${isGpaRequest and staffInbox and !gpaApprover}">
+        <h3 class="section-title">Staff reply</h3>
+        <p class="muted">Only the principal or admin can approve or reject GPA access.</p>
+        <form th:action="@{/admin/requests/{id}/reply(id=${item.uuid})}" method="post" class="form-grid">
+            <label>Status
+                <select name="status">
+                    <option th:each="st : ${statuses}"
+                            th:if="${st.name() != 'APPROVED' and st.name() != 'REJECTED'}"
+                            th:value="${st}" th:text="${st}"
                             th:selected="${item.status == st}">OPEN</option>
                 </select>
             </label>

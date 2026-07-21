@@ -2,10 +2,14 @@ package com.project.school_management.service.attendance;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
@@ -15,7 +19,12 @@ import com.project.school_management.dto.attendance.AttendanceBatchRequest;
 import com.project.school_management.dto.attendance.AttendanceMarkItem;
 import com.project.school_management.dto.attendance.AttendanceRequest;
 import com.project.school_management.dto.attendance.AttendanceResponse;
+import com.project.school_management.dto.attendance.ClassAttendanceOverview;
 import com.project.school_management.dto.dashboard.ChartSeries;
+import com.project.school_management.dto.schoolclass.SchoolClassResponse;
+import com.project.school_management.dto.user.DataUser;
+import com.project.school_management.dto.user.UserClassItem;
+import com.project.school_management.dto.user.UserResponse;
 import com.project.school_management.entities.AttendanceRecord;
 import com.project.school_management.entities.SchoolClass;
 import com.project.school_management.entities.User;
@@ -26,6 +35,8 @@ import com.project.school_management.repository.AttendanceRecordRepository;
 import com.project.school_management.repository.SchoolClassRepository;
 import com.project.school_management.repository.UserRepository;
 import com.project.school_management.security.SchoolScopeService;
+import com.project.school_management.service.schoolclass.SchoolClassService;
+import com.project.school_management.service.user.UserService;
 
 @Service
 @Transactional
@@ -35,16 +46,22 @@ public class AttendanceServiceImpl implements AttendanceService {
     private final UserRepository userRepository;
     private final SchoolClassRepository schoolClassRepository;
     private final SchoolScopeService schoolScopeService;
+    private final SchoolClassService schoolClassService;
+    private final UserService userService;
 
     public AttendanceServiceImpl(
             AttendanceRecordRepository attendanceRepository,
             UserRepository userRepository,
             SchoolClassRepository schoolClassRepository,
-            SchoolScopeService schoolScopeService) {
+            SchoolScopeService schoolScopeService,
+            SchoolClassService schoolClassService,
+            UserService userService) {
         this.attendanceRepository = attendanceRepository;
         this.userRepository = userRepository;
         this.schoolClassRepository = schoolClassRepository;
         this.schoolScopeService = schoolScopeService;
+        this.schoolClassService = schoolClassService;
+        this.userService = userService;
     }
 
     @Override
@@ -61,11 +78,11 @@ public class AttendanceServiceImpl implements AttendanceService {
         boolean filterClass = classUuid != null;
         boolean filterUser = scopedUser != null;
         return attendanceRepository.findFiltered(
-                        filterDate, filterDate ? date : LocalDate.EPOCH,
-                        filterClass, filterClass ? classUuid : current.getUuid(),
-                        filterUser, filterUser ? scopedUser : current.getUuid())
+                filterDate, filterDate ? date : LocalDate.EPOCH,
+                filterClass, filterClass ? classUuid : current.getUuid(),
+                filterUser, filterUser ? scopedUser : current.getUuid())
                 .stream()
-                .filter(a -> inScope(a))
+                .filter(this::inScope)
                 .filter(a -> role != RoleName.TEACHER || teachesOrSelf(current, a, finalUser))
                 .map(AttendanceResponse::from)
                 .toList();
@@ -76,6 +93,28 @@ public class AttendanceServiceImpl implements AttendanceService {
     public List<AttendanceResponse> listMine(LocalDate date) {
         User current = schoolScopeService.requireCurrentUser();
         return list(date, null, current.getUuid());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<AttendanceResponse> listFiltered(
+            LocalDate date,
+            UUID classUuid,
+            UUID userUuid,
+            RoleName roleFilter,
+            Integer generation) {
+        List<AttendanceResponse> records = list(date, classUuid, userUuid);
+        if (roleFilter != null) {
+            records = records.stream()
+                    .filter(r -> r.getUserRole() == roleFilter)
+                    .toList();
+        }
+        if (generation != null) {
+            records = records.stream()
+                    .filter(r -> generation.equals(r.getGeneration()))
+                    .toList();
+        }
+        return records;
     }
 
     @Override
@@ -129,6 +168,38 @@ public class AttendanceServiceImpl implements AttendanceService {
     }
 
     @Override
+    public int markFromForm(
+            UUID classUuid,
+            LocalDate attendanceDate,
+            List<UUID> studentUuids,
+            List<AttendanceStatus> statuses) {
+        if (classUuid == null) {
+            throw new IllegalArgumentException("Class is required");
+        }
+        if (attendanceDate == null) {
+            throw new IllegalArgumentException("Attendance date is required");
+        }
+        if (studentUuids == null || studentUuids.isEmpty()) {
+            throw new IllegalArgumentException("No students submitted");
+        }
+        AttendanceBatchRequest batch = new AttendanceBatchRequest();
+        batch.setClassUuid(classUuid);
+        batch.setAttendanceDate(attendanceDate);
+        List<AttendanceMarkItem> items = new ArrayList<>();
+        for (int i = 0; i < studentUuids.size(); i++) {
+            AttendanceMarkItem item = new AttendanceMarkItem();
+            item.setUserUuid(studentUuids.get(i));
+            item.setStatus(
+                    statuses != null && i < statuses.size() && statuses.get(i) != null
+                            ? statuses.get(i)
+                            : AttendanceStatus.PRESENT);
+            items.add(item);
+        }
+        batch.setItems(items);
+        return markBatch(batch);
+    }
+
+    @Override
     public void delete(UUID id) {
         AttendanceRecord record = attendanceRepository.findDetailedById(id)
                 .orElseThrow(() -> new ExceptionNotFound("Attendance not found: " + id));
@@ -151,6 +222,208 @@ public class AttendanceServiceImpl implements AttendanceService {
     @Transactional(readOnly = true)
     public ChartSeries classMonthChart(UUID classUuid, int days) {
         return buildMonthChart(list(null, classUuid, null), days);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<SchoolClassResponse> visibleClasses(DataUser account) {
+        List<SchoolClassResponse> all = schoolClassService.getAll();
+        if (account == null || account.getRole() == null) {
+            return List.of();
+        }
+        if (isManagement(account) || account.getRole() == RoleName.PRINCIPAL || account.getRole() == RoleName.STAFF) {
+            return all;
+        }
+        if (account.getRole() == RoleName.TEACHER) {
+            return markableClasses(account);
+        }
+        if (account.getRole() == RoleName.STUDENT && account.getClasses() != null) {
+            Set<UUID> mine = account.getClasses().stream()
+                    .map(UserClassItem::getUuid)
+                    .filter(Objects::nonNull)
+                    .collect(Collectors.toSet());
+            return all.stream().filter(c -> mine.contains(c.getUuid())).toList();
+        }
+        return List.of();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<SchoolClassResponse> visibleClasses(DataUser account, Integer generation) {
+        List<SchoolClassResponse> classes = visibleClasses(account);
+        if (generation == null) {
+            return classes;
+        }
+        return classes.stream()
+                .filter(c -> generation.equals(c.getGeneration()))
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<SchoolClassResponse> markableClasses(DataUser account) {
+        List<SchoolClassResponse> all = schoolClassService.getAll();
+        if (account == null || account.getRole() == null) {
+            return List.of();
+        }
+        if (account.getRole() == RoleName.SUPERADMIN || account.getRole() == RoleName.ADMIN) {
+            return all;
+        }
+        if (account.getRole() == RoleName.TEACHER) {
+            if (account.getClasses() == null || account.getClasses().isEmpty()) {
+                return List.of();
+            }
+            Set<UUID> taught = account.getClasses().stream()
+                    .map(UserClassItem::getUuid)
+                    .filter(Objects::nonNull)
+                    .collect(Collectors.toSet());
+            return all.stream().filter(c -> taught.contains(c.getUuid())).toList();
+        }
+        return List.of();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public SchoolClassResponse findVisibleClass(DataUser account, UUID classUuid) {
+        if (classUuid == null) {
+            return null;
+        }
+        return visibleClasses(account).stream()
+                .filter(c -> classUuid.equals(c.getUuid()))
+                .findFirst()
+                .orElse(null);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<ClassAttendanceOverview> buildClassOverviews(List<SchoolClassResponse> classes) {
+        if (classes == null || classes.isEmpty()) {
+            return List.of();
+        }
+        List<UserResponse> allUsers = userService.getAll();
+        List<ClassAttendanceOverview> rows = new ArrayList<>();
+        for (SchoolClassResponse c : classes) {
+            List<String> teacherNames = allUsers.stream()
+                    .filter(u -> u.getRole() == RoleName.TEACHER)
+                    .filter(u -> u.getClasses() != null
+                            && u.getClasses().stream().anyMatch(cl -> c.getUuid().equals(cl.getUuid())))
+                    .map(UserResponse::getName)
+                    .filter(Objects::nonNull)
+                    .sorted(String.CASE_INSENSITIVE_ORDER)
+                    .toList();
+            int studentCount = (int) allUsers.stream()
+                    .filter(u -> u.getRole() == RoleName.STUDENT)
+                    .filter(u -> u.getClasses() != null
+                            && u.getClasses().stream().anyMatch(cl -> c.getUuid().equals(cl.getUuid())))
+                    .count();
+            String teachersLabel = teacherNames.isEmpty() ? "Unassigned" : String.join(", ", teacherNames);
+            rows.add(ClassAttendanceOverview.builder()
+                    .classUuid(c.getUuid())
+                    .className(c.getName())
+                    .grade(c.getGrade())
+                    .generation(c.getGeneration())
+                    .generationCode(c.getGenerationCode())
+                    .schoolName(c.getSchoolName())
+                    .teacherNames(teacherNames)
+                    .teachersLabel(teachersLabel)
+                    .studentCount(studentCount)
+                    .build());
+        }
+        rows.sort(Comparator.comparing(
+                r -> r.getClassName() == null ? "" : r.getClassName(),
+                String.CASE_INSENSITIVE_ORDER));
+        return rows;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<UserResponse> studentsInClass(UUID classUuid) {
+        if (classUuid == null) {
+            return List.of();
+        }
+        return userService.getAll().stream()
+                .filter(u -> u.getRole() == RoleName.STUDENT)
+                .filter(u -> u.getClasses() != null
+                        && u.getClasses().stream().anyMatch(c -> classUuid.equals(c.getUuid())))
+                .sorted(Comparator.comparing(
+                        u -> u.getName() == null ? "" : u.getName(),
+                        String.CASE_INSENSITIVE_ORDER))
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<UserResponse> teachersForClass(UUID classUuid) {
+        if (classUuid == null) {
+            return List.of();
+        }
+        return userService.getAll().stream()
+                .filter(u -> u.getRole() == RoleName.TEACHER)
+                .filter(u -> u.getClasses() != null
+                        && u.getClasses().stream().anyMatch(c -> classUuid.equals(c.getUuid())))
+                .sorted(Comparator.comparing(
+                        u -> u.getName() == null ? "" : u.getName(),
+                        String.CASE_INSENSITIVE_ORDER))
+                .toList();
+    }
+
+    @Override
+    public boolean canMark(DataUser account) {
+        if (account == null || account.getRole() == null) {
+            return false;
+        }
+        return account.getRole() == RoleName.SUPERADMIN
+                || account.getRole() == RoleName.ADMIN
+                || account.getRole() == RoleName.TEACHER;
+    }
+
+    @Override
+    public boolean isManagement(DataUser account) {
+        return account != null
+                && (account.getRole() == RoleName.SUPERADMIN || account.getRole() == RoleName.ADMIN);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Map<UUID, AttendanceResponse> attendanceByUser(LocalDate date, UUID classUuid) {
+        LocalDate day = date != null ? date : LocalDate.now();
+        if (classUuid == null) {
+            return Map.of();
+        }
+        return list(day, classUuid, null).stream()
+                .filter(r -> r.getUserUuid() != null)
+                .collect(Collectors.toMap(
+                        AttendanceResponse::getUserUuid,
+                        r -> r,
+                        (a, b) -> a,
+                        LinkedHashMap::new));
+    }
+
+    @Override
+    public String resolveActiveTab(String tab, String viewAlias, DataUser account) {
+        String view = tab != null && !tab.isBlank() ? tab : viewAlias;
+        if ("records".equalsIgnoreCase(view)) {
+            return "records";
+        }
+        if ("classes".equalsIgnoreCase(view)) {
+            return "classes";
+        }
+        if (isManagement(account) || (account != null && account.getRole() == RoleName.TEACHER)) {
+            return "classes";
+        }
+        return "records";
+    }
+
+    @Override
+    public RoleName parseRole(String role) {
+        if (role == null || role.isBlank() || "ALL".equalsIgnoreCase(role)) {
+            return null;
+        }
+        try {
+            return RoleName.valueOf(role.trim().toUpperCase());
+        } catch (Exception ex) {
+            return null;
+        }
     }
 
     private ChartSeries buildMonthChart(List<AttendanceResponse> rows, int days) {
@@ -240,11 +513,9 @@ public class AttendanceServiceImpl implements AttendanceService {
 
     private void assertCanMarkClass(User marker, SchoolClass schoolClass) {
         RoleName role = marker.getRole() != null ? marker.getRole().getName() : null;
-        // Management: Admin / Superadmin can mark any class
         if (role == RoleName.SUPERADMIN || role == RoleName.ADMIN) {
             return;
         }
-        // Teachers assign attendance only for their own classes
         if (role == RoleName.TEACHER) {
             boolean teaches = marker.getSchoolClasses() != null
                     && marker.getSchoolClasses().stream()

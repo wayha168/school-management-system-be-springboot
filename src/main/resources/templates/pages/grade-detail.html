@@ -6,7 +6,8 @@
     <div class="page-toolbar">
         <div class="page-toolbar-main">
             <h2 class="page-heading">Student grades</h2>
-            <p class="muted" th:text="${gpa.studentName + ' · ' + gpa.studentEmail}">Student</p>
+            <p class="muted"
+               th:text="${gpa != null ? (gpa.studentName + ' · ' + gpa.studentEmail) : (account.name + ' · ' + account.email)}">Student</p>
             <div class="page-toolbar-actions row">
                 <a class="btn btn-ghost"
                    th:if="${isStudentSelf}"
@@ -18,93 +19,112 @@
         </div>
     </div>
 
-    <div class="page-toolbar-actions" style="margin-bottom:14px">
-        <form class="filter-bar" method="get" th:action="@{/admin/grades/{id}(id=${gpa.studentUuid})}">
-            <input type="hidden" name="classUuid" th:value="${selectedClassUuid}">
-            <select name="generation" onchange="this.form.submit()" aria-label="Session">
-                <option value="">All sessions</option>
-                <option th:each="g : ${generations}" th:value="${g}"
-                        th:selected="${selectedGeneration != null and selectedGeneration == g}"
-                        th:text="${'G' + g + ' session'}">G9 session</option>
-            </select>
-            <select name="term" onchange="this.form.submit()" aria-label="Term">
-                <option value="">All terms</option>
-                <option th:each="t : ${terms}" th:value="${t}"
-                        th:selected="${selectedTerm != null and selectedTerm == t}"
-                        th:text="${t}">Term 1</option>
-            </select>
-            <label th:if="${!#lists.isEmpty(classStudents)}">Student
-                <select name="studentSwitch" aria-label="Switch student"
-                        th:attr="data-generation=${selectedGeneration}, data-term=${selectedTerm}, data-class=${selectedClassUuid}"
-                        onchange="if(!this.value)return; var g=this.getAttribute('data-generation'); var t=this.getAttribute('data-term'); var c=this.getAttribute('data-class'); var q=[]; if(g)q.push('generation='+encodeURIComponent(g)); if(t)q.push('term='+encodeURIComponent(t)); if(c)q.push('classUuid='+encodeURIComponent(c)); location.href='/admin/grades/'+this.value+(q.length?'?'+q.join('&'):'');">
-                    <option th:each="s : ${classStudents}" th:value="${s.studentUuid}"
-                            th:selected="${s.studentUuid == gpa.studentUuid}"
-                            th:text="${s.studentName}">Student</option>
+    <!-- Student: GPA locked until principal/admin approval -->
+    <article class="form-card form-card-wide" th:if="${isStudentSelf and gpaAccess != null and !gpaAccess.canViewGpa}">
+        <h3 class="section-title">Score &amp; GPA access required</h3>
+        <p class="muted" th:text="${gpaAccess.message}">Request approval to view your scores and GPA.</p>
+        <p th:if="${gpaAccess.status != null}" style="margin-top:8px">
+            Status: <span class="role-badge" th:text="${gpaAccess.status}">OPEN</span>
+        </p>
+        <div class="modal-actions" style="margin-top:16px">
+            <form th:if="${gpaAccess.canRequest}" th:action="@{/admin/requests/gpa}" method="post">
+                <button type="submit" class="btn btn-dark">Request score &amp; GPA access</button>
+            </form>
+            <a th:if="${gpaAccess.requestUuid != null}"
+               class="btn btn-ghost"
+               th:href="@{/admin/requests/{id}(id=${gpaAccess.requestUuid})}">View request</a>
+        </div>
+    </article>
+
+    <th:block th:if="${gpa != null}">
+        <div class="page-toolbar-actions" style="margin-bottom:14px">
+            <form class="filter-bar" method="get" th:action="@{/admin/grades/{id}(id=${gpa.studentUuid})}">
+                <input type="hidden" name="classUuid" th:value="${selectedClassUuid}">
+                <select name="generation" onchange="this.form.submit()" aria-label="Session">
+                    <option value="">All sessions</option>
+                    <option th:each="g : ${generations}" th:value="${g}"
+                            th:selected="${selectedGeneration != null and selectedGeneration == g}"
+                            th:text="${'G' + g + ' session'}">G9 session</option>
                 </select>
-            </label>
-            <button type="submit" class="btn btn-ghost">Apply</button>
-        </form>
-    </div>
-
-    <div class="summary-grid" style="margin-bottom:16px">
-        <article class="summary-card">
-            <div><span class="summary-label">GPA</span><p class="summary-value" th:text="${gpa.gpa}">0.00</p></div>
-        </article>
-        <article class="summary-card">
-            <div><span class="summary-label">Average %</span><p class="summary-value" th:text="${gpa.averagePercent}">0</p></div>
-        </article>
-        <article class="summary-card">
-            <div><span class="summary-label">Letter</span><p class="summary-value" th:text="${gpa.letterGrade}">—</p></div>
-        </article>
-        <article class="summary-card">
-            <div><span class="summary-label">Scores</span><p class="summary-value" th:text="${gpa.totalScores}">0</p></div>
-        </article>
-    </div>
-
-    <div class="view-switch-row">
-        <div class="view-switch" data-view-switch data-view-default="subjects" role="tablist" aria-label="Grade tables">
-            <button type="button" class="view-switch-btn is-active" data-view-target="subjects">By subject</button>
-            <button type="button" class="view-switch-btn" data-view-target="scores">Score rows</button>
+                <select name="term" onchange="this.form.submit()" aria-label="Term">
+                    <option value="">All terms</option>
+                    <option th:each="t : ${terms}" th:value="${t}"
+                            th:selected="${selectedTerm != null and selectedTerm == t}"
+                            th:text="${t}">Term 1</option>
+                </select>
+                <label th:if="${!#lists.isEmpty(classStudents)}">Student
+                    <select name="studentSwitch" aria-label="Switch student"
+                            th:attr="data-generation=${selectedGeneration}, data-term=${selectedTerm}, data-class=${selectedClassUuid}"
+                            onchange="if(!this.value)return; var g=this.getAttribute('data-generation'); var t=this.getAttribute('data-term'); var c=this.getAttribute('data-class'); var q=[]; if(g)q.push('generation='+encodeURIComponent(g)); if(t)q.push('term='+encodeURIComponent(t)); if(c)q.push('classUuid='+encodeURIComponent(c)); location.href='/admin/grades/'+this.value+(q.length?'?'+q.join('&'):'');">
+                        <option th:each="s : ${classStudents}" th:value="${s.studentUuid}"
+                                th:selected="${s.studentUuid == gpa.studentUuid}"
+                                th:text="${s.studentName}">Student</option>
+                    </select>
+                </label>
+                <button type="submit" class="btn btn-ghost">Apply</button>
+            </form>
         </div>
-    </div>
 
-    <div class="view-panel" data-view-panel="subjects">
-        <div class="table-wrap">
-            <table class="data-table" id="grade-subjects-table">
-                <thead><tr><th>Subject</th><th>Avg %</th><th>GPA pts</th><th>Letter</th><th>Count</th></tr></thead>
-                <tbody>
-                <tr th:each="sub : ${gpa.subjects}"
-                    th:attr="data-search=${sub.subject}">
-                    <td th:text="${sub.subject}">Math</td>
-                    <td th:text="${sub.averagePercent}">80</td>
-                    <td th:text="${sub.gpaPoints}">3.0</td>
-                    <td th:text="${sub.letterGrade}">B</td>
-                    <td th:text="${sub.scoreCount}">1</td>
-                </tr>
-                <tr th:if="${#lists.isEmpty(gpa.subjects)}"><td colspan="5">No subject averages.</td></tr>
-                </tbody>
-            </table>
+        <div class="summary-grid" style="margin-bottom:16px">
+            <article class="summary-card">
+                <div><span class="summary-label">GPA</span><p class="summary-value" th:text="${gpa.gpa}">0.00</p></div>
+            </article>
+            <article class="summary-card">
+                <div><span class="summary-label">Average %</span><p class="summary-value" th:text="${gpa.averagePercent}">0</p></div>
+            </article>
+            <article class="summary-card">
+                <div><span class="summary-label">Letter</span><p class="summary-value" th:text="${gpa.letterGrade}">—</p></div>
+            </article>
+            <article class="summary-card">
+                <div><span class="summary-label">Scores</span><p class="summary-value" th:text="${gpa.totalScores}">0</p></div>
+            </article>
         </div>
-    </div>
 
-    <div class="view-panel" data-view-panel="scores" hidden>
-        <div class="table-wrap">
-            <table class="data-table" id="grade-scores-table">
-                <thead><tr><th>Class</th><th>Subject</th><th>Term</th><th>Score</th><th>Teacher</th></tr></thead>
-                <tbody>
-                <tr th:each="item : ${gpa.scores}"
-                    th:attr="data-search=${item.className + ' ' + item.subject + ' ' + item.term}">
-                    <td th:text="${item.className}">Class</td>
-                    <td th:text="${item.subject}">Math</td>
-                    <td th:text="${item.term} ?: '—'">Term 1</td>
-                    <td th:text="${item.score + ' / ' + item.maxScore}">80 / 100</td>
-                    <td th:text="${item.teacherName}">Teacher</td>
-                </tr>
-                <tr th:if="${#lists.isEmpty(gpa.scores)}"><td colspan="5">No scores.</td></tr>
-                </tbody>
-            </table>
+        <div class="view-switch-row">
+            <div class="view-switch" data-view-switch data-view-default="subjects" role="tablist" aria-label="Grade tables">
+                <button type="button" class="view-switch-btn is-active" data-view-target="subjects">By subject</button>
+                <button type="button" class="view-switch-btn" data-view-target="scores">Score rows</button>
+            </div>
         </div>
-    </div>
+
+        <div class="view-panel" data-view-panel="subjects">
+            <div class="table-wrap">
+                <table class="data-table" id="grade-subjects-table">
+                    <thead><tr><th>Subject</th><th>Avg %</th><th>GPA pts</th><th>Letter</th><th>Count</th></tr></thead>
+                    <tbody>
+                    <tr th:each="sub : ${gpa.subjects}"
+                        th:attr="data-search=${sub.subject}">
+                        <td th:text="${sub.subject}">Math</td>
+                        <td th:text="${sub.averagePercent}">80</td>
+                        <td th:text="${sub.gpaPoints}">3.0</td>
+                        <td th:text="${sub.letterGrade}">B</td>
+                        <td th:text="${sub.scoreCount}">1</td>
+                    </tr>
+                    <tr th:if="${#lists.isEmpty(gpa.subjects)}"><td colspan="5">No subject averages.</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="view-panel" data-view-panel="scores" hidden>
+            <div class="table-wrap">
+                <table class="data-table" id="grade-scores-table">
+                    <thead><tr><th>Class</th><th>Subject</th><th>Term</th><th>Score</th><th>Teacher</th></tr></thead>
+                    <tbody>
+                    <tr th:each="item : ${gpa.scores}"
+                        th:attr="data-search=${item.className + ' ' + item.subject + ' ' + item.term}">
+                        <td th:text="${item.className}">Class</td>
+                        <td th:text="${item.subject}">Math</td>
+                        <td th:text="${item.term} ?: '—'">Term 1</td>
+                        <td th:text="${item.score + ' / ' + item.maxScore}">80 / 100</td>
+                        <td th:text="${item.teacherName}">Teacher</td>
+                    </tr>
+                    <tr th:if="${#lists.isEmpty(gpa.scores)}"><td colspan="5">No scores.</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </th:block>
 </section>
 </body>
 </html>

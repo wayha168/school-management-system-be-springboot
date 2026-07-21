@@ -2578,7 +2578,65 @@ a.view-switch-btn {
     min-width: max-content;
 }
 
-.score-session-table input[type="number"] {
+.score-session-filters {
+    margin-bottom: 16px;
+}
+
+.score-session-filter-actions {
+    display: flex;
+    align-items: flex-end;
+}
+
+.score-session-banner {
+    margin: 0 0 14px;
+    padding: 12px 14px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: color-mix(in srgb, var(--card) 88%, var(--accent, #2f6f4e) 12%);
+}
+
+.score-session-banner-text {
+    margin: 0 0 4px;
+    font-weight: 600;
+}
+
+.score-session-wrap {
+    max-height: min(70vh, 720px);
+    overflow: auto;
+}
+
+.score-session-table .col-sticky {
+    position: sticky;
+    left: 0;
+    z-index: 2;
+    background: var(--card);
+}
+
+.score-session-table thead .col-sticky {
+    z-index: 3;
+}
+
+.score-session-table .col-sticky:first-child {
+    left: 0;
+    min-width: 44px;
+}
+
+.score-session-table .col-student {
+    left: 44px;
+    min-width: 180px;
+    box-shadow: 8px 0 10px -8px rgba(0, 0, 0, 0.18);
+}
+
+.score-session-email {
+    font-size: 0.78rem;
+}
+
+.score-session-table input.score-cell-input,
+.score-session-table input[type="number"],
+input.score-input-cell {
+    width: 120px;
+    min-height: 38px;
+    margin: 0;
     background: var(--card);
     color: var(--ink);
     border: 1px solid var(--line);
@@ -2586,10 +2644,41 @@ a.view-switch-btn {
     padding: 8px 10px;
 }
 
+.score-session-actions {
+    margin-top: 14px;
+    position: sticky;
+    bottom: 0;
+    padding-top: 10px;
+    background: linear-gradient(to top, var(--card) 70%, transparent);
+}
+
+.btn-lg {
+    min-height: 44px;
+    padding-inline: 22px;
+    font-size: 1rem;
+}
+
+.score-enter-cta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.score-enter-cta-title {
+    margin: 0 0 4px;
+    font-weight: 700;
+}
+
 [data-theme="dark"] .score-session-table input[type="number"] {
     background: #121916;
     color: var(--ink);
     border-color: var(--line);
+}
+
+[data-theme="dark"] .score-session-table .col-sticky {
+    background: #121916;
 }
 
 /* Nested scroll areas inside cards: no double card chrome */

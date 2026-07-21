@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{layout :: layout(~{::section})}">
+<body>
+<section th:fragment="section">
+    <div class="page-toolbar">
+        <div class="page-toolbar-main">
+            <h2 class="page-heading" data-i18n="scores.inputTitle">Input scores</h2>
+            <p class="muted" data-i18n="scores.inputSubtitle">
+                Enter a score for each student, then save. Records are saved per subject and period.
+            </p>
+            <div class="page-toolbar-actions row">
+                <a class="btn btn-ghost" th:href="@{/admin/scores(tab='classes')}" data-i18n="common.back">Back</a>
+            </div>
+        </div>
+    </div>
+
+    <article class="form-card form-card-wide">
+        <p class="muted" th:if="${assessmentWarning}" style="margin:0 0 12px;color:#a33"
+           th:text="${assessmentWarning}">Assessment unavailable</p>
+
+        <form method="get" th:action="@{/admin/scores/mark}" class="form-grid" style="margin-bottom:16px">
+            <label>Class
+                <select name="classUuid" required onchange="this.form.submit()" aria-label="Class">
+                    <option value="" disabled th:selected="${selectedClassUuid == null}">Select class</option>
+                    <option th:each="c : ${classes}"
+                            th:value="${c.uuid}"
+                            th:selected="${selectedClassUuid != null and selectedClassUuid == c.uuid}"
+                            th:text="${c.name + ' · ' + (c.generationCode ?: '')}">Class</option>
+                </select>
+            </label>
+            <label th:if="${selectedClassUuid != null}"><span data-i18n="scores.subject">Subject</span>
+                <select name="subject" required onchange="this.form.submit()" aria-label="Subject"
+                        th:disabled="${#lists.isEmpty(classSubjects)}">
+                    <option value="" disabled th:selected="${selectedSubject == null}">Select subject</option>
+                    <option th:each="subj : ${classSubjects}"
+                            th:value="${subj}"
+                            th:selected="${selectedSubject != null and selectedSubject.equalsIgnoreCase(subj)}"
+                            th:text="${subj}">Math</option>
+                </select>
+            </label>
+            <label th:if="${selectedClassUuid != null}"><span data-i18n="scores.period">Period</span>
+                <select name="period" onchange="this.form.submit()" aria-label="Period">
+                    <option value="monthly" th:selected="${selectedPeriod == 'monthly'}">Monthly</option>
+                    <option value="term1" th:selected="${selectedPeriod == 'term1'}">Term 1</option>
+                    <option value="term2" th:selected="${selectedPeriod == 'term2'}">Term 2</option>
+                    <option value="midterm" th:selected="${selectedPeriod == 'midterm'}">Midterm</option>
+                    <option value="final" th:selected="${selectedPeriod == 'final'}">Final</option>
+                </select>
+            </label>
+            <label th:if="${selectedClassUuid != null and selectedPeriod == 'monthly'}">
+                <span data-i18n="scores.month">Month</span>
+                <input type="text" th:value="${monthlyLabel}" readonly
+                       aria-label="Current month" title="Always uses the real current month">
+            </label>
+            <label th:if="${selectedClassUuid != null}"><span data-i18n="scores.maxScore">Max score</span>
+                <input type="number" name="maxScore" min="0.01" step="0.01"
+                       th:value="${selectedMaxScore}" onchange="this.form.submit()">
+            </label>
+        </form>
+
+        <form th:if="${ready}"
+              th:action="@{/admin/scores/mark}"
+              method="post">
+            <input type="hidden" name="classUuid" th:value="${selectedClassUuid}">
+            <input type="hidden" name="period" th:value="${selectedPeriod}">
+            <input type="hidden" name="subject" th:value="${selectedSubject}">
+            <input type="hidden" name="maxScore" th:value="${selectedMaxScore}">
+
+            <div class="table-wrap">
+                <table class="data-table">
+                    <thead>
+                    <tr>
+                        <th>#</th>
+                        <th data-i18n="dash.student">Student</th>
+                        <th>Email</th>
+                        <th data-i18n="scores.score">Score</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <tr th:each="s, iter : ${students}">
+                        <td th:text="${iter.count}">1</td>
+                        <td>
+                            <input type="hidden" name="studentUuid" th:value="${s.uuid}">
+                            <span th:text="${s.name}">Name</span>
+                        </td>
+                        <td th:text="${s.email}">email</td>
+                        <td>
+                            <input type="number" name="entryScore" min="0" step="0.01"
+                                   class="score-input-cell"
+                                   th:attr="max=${selectedMaxScore}, aria-label=${'Score for ' + s.name}"
+                                   th:value="${scoreByStudent != null and scoreByStudent.containsKey(s.uuid)} ? ${scoreByStudent.get(s.uuid).score} : ''"
+                                   placeholder="—">
+                        </td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="modal-actions" style="margin-top:14px">
+                <button type="submit" class="btn btn-dark" data-i18n="scores.saveSession">Save scores</button>
+            </div>
+        </form>
+
+        <p class="muted" th:if="${selectedClassUuid == null}">Select a class to load students.</p>
+        <p class="muted" th:if="${selectedClassUuid != null and !hasSubjects}">
+            <span data-i18n="scores.noClassSubjects">This class has no subjects yet.</span>
+            <a th:href="@{/admin/classes/{id}/edit(id=${selectedClassUuid})}" data-i18n="scores.editClassSubjects">Add subjects to class</a>
+        </p>
+        <p class="muted" th:if="${selectedClassUuid != null and hasSubjects and selectedSubject != null and #lists.isEmpty(students)}"
+           data-i18n="scores.noStudents">No students in this class.</p>
+    </article>
+</section>
+</body>
+</html>

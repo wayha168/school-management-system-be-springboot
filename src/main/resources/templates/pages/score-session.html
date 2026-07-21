@@ -6,8 +6,8 @@
     <div class="page-toolbar">
         <div class="page-toolbar-main">
             <div>
-                <h2 class="page-heading" data-i18n="scores.sessionTitle">Score session</h2>
-                <p class="muted" data-i18n="scores.sessionSubtitle">Enter scores for all students across class subjects</p>
+                <h2 class="page-heading" data-i18n="scores.sessionTitle">Enter class scores</h2>
+                <p class="muted" data-i18n="scores.sessionSubtitle">Show every student in the class, type scores, then save all at once</p>
             </div>
             <div class="page-toolbar-actions row">
                 <a class="btn btn-ghost" th:href="@{/admin/scores}" data-i18n="common.back">Back</a>
@@ -16,7 +16,9 @@
     </div>
 
     <article class="form-card form-card-wide">
-        <form method="get" th:action="@{/admin/scores/session}" class="form-grid" style="margin-bottom:16px">
+        <p class="muted" th:if="${assessmentWarning}" style="margin:0 0 12px;color:#a33"
+           th:text="${assessmentWarning}">Assessment unavailable</p>
+        <form method="get" th:action="@{/admin/scores/session}" class="form-grid score-session-filters">
             <label><span data-i18n="scores.session">Session</span>
                 <select name="generation" onchange="this.form.submit()" aria-label="Session">
                     <option value="" data-i18n="scores.allSessions">All sessions</option>
@@ -27,7 +29,7 @@
                 </select>
             </label>
             <label><span data-i18n="dash.class">Class</span>
-                <select name="classUuid" onchange="this.form.submit()" aria-label="Class">
+                <select name="classUuid" onchange="this.form.submit()" aria-label="Class" required>
                     <option value="" data-i18n="scores.selectClass">Select class</option>
                     <option th:each="c : ${classes}"
                             th:value="${c.uuid}"
@@ -35,70 +37,90 @@
                             th:text="${c.name + ' · ' + (c.grade ?: '') + ' · ' + (c.generationCode ?: '')}">Class</option>
                 </select>
             </label>
+            <label><span data-i18n="scores.subject">Subject</span>
+                <select name="subject" onchange="this.form.submit()" aria-label="Subject"
+                        th:disabled="${selectedClassUuid == null or #lists.isEmpty(classSubjects)}">
+                    <option value="" data-i18n="scores.allSubjects">All subjects</option>
+                    <option th:each="subj : ${classSubjects}"
+                            th:value="${subj}"
+                            th:selected="${selectedSubject != null and selectedSubject.equalsIgnoreCase(subj)}"
+                            th:text="${subj}">Math</option>
+                </select>
+            </label>
             <label><span data-i18n="scores.term">Term</span>
-                <input type="text" name="term" placeholder="Term 1"
-                       th:value="${selectedTerm}">
+                <select name="term" onchange="this.form.submit()" aria-label="Term">
+                    <option value="Term 1" th:selected="${selectedTerm == 'Term 1'}">Term 1</option>
+                    <option value="Term 2" th:selected="${selectedTerm == 'Term 2'}">Term 2</option>
+                    <option value="Midterm" th:selected="${selectedTerm == 'Midterm'}">Midterm</option>
+                    <option value="Final" th:selected="${selectedTerm == 'Final'}">Final</option>
+                    <option th:if="${selectedTerm != 'Term 1' and selectedTerm != 'Term 2' and selectedTerm != 'Midterm' and selectedTerm != 'Final'}"
+                            th:value="${selectedTerm}"
+                            th:text="${selectedTerm}"
+                            selected>Custom</option>
+                </select>
             </label>
             <label><span data-i18n="scores.maxScore">Max score</span>
                 <input type="number" name="maxScore" min="0.01" step="0.01"
                        th:value="${selectedMaxScore}">
             </label>
-            <div style="display:flex; align-items:flex-end">
+            <div class="score-session-filter-actions">
                 <button type="submit" class="btn btn-ghost" data-i18n="scores.loadSheet">Load table</button>
             </div>
         </form>
 
         <div th:if="${sessionReady and hasSubjects and !#lists.isEmpty(students)}">
-            <p class="muted" style="margin:0 0 12px"
-               th:text="${selectedTerm + ' · max ' + selectedMaxScore + ' · ' + #lists.size(subjects) + ' subject(s)'}">
-                Term 1 · max 100 · 4 subject(s)
-            </p>
+            <div class="score-session-banner">
+                <p class="score-session-banner-text"
+                   th:text="${studentCount + ' students · ' + selectedTerm + ' · max ' + selectedMaxScore + (selectedSubject != null ? ' · ' + selectedSubject : ' · ' + #lists.size(subjects) + ' subject(s)')}">
+                    30 students · Term 1 · max 100 · Math
+                </p>
+                <p class="muted" data-i18n="scores.sessionHint">Fill any cells you need, then press Save all scores once.</p>
+            </div>
 
-            <form th:action="@{/admin/scores/session}" method="post">
+            <form th:action="@{/admin/scores/session}" method="post" class="score-session-form">
                 <input type="hidden" name="classUuid" th:value="${selectedClassUuid}">
                 <input type="hidden" name="term" th:value="${selectedTerm}">
                 <input type="hidden" name="maxScore" th:value="${selectedMaxScore}">
+                <input type="hidden" th:if="${selectedSubject != null}" name="subject" th:value="${selectedSubject}">
                 <input type="hidden" th:if="${selectedGeneration != null}" name="generation" th:value="${selectedGeneration}">
 
-                <div class="table-wrap" style="overflow-x:auto">
+                <div class="table-wrap score-session-wrap">
                     <table class="data-table score-session-table">
                         <thead>
                         <tr>
-                            <th>#</th>
-                            <th data-i18n="dash.student">Student</th>
-                            <th data-i18n="header.grade">Grade</th>
+                            <th class="col-sticky">#</th>
+                            <th class="col-sticky col-student" data-i18n="dash.student">Student</th>
                             <th th:each="subj : ${subjects}" th:text="${subj}">Math</th>
                         </tr>
                         </thead>
                         <tbody>
                         <tr th:each="s, iter : ${students}">
-                            <td th:text="${iter.count}">1</td>
-                            <td>
+                            <td class="col-sticky" th:text="${iter.count}">1</td>
+                            <td class="col-sticky col-student">
                                 <strong th:text="${s.name}">Name</strong>
-                                <div class="muted" style="font-size:0.78rem" th:text="${s.email}">email</div>
+                                <div class="muted score-session-email" th:text="${s.email}">email</div>
                             </td>
-                            <td th:text="${s.grade} ?: '—'">—</td>
                             <td th:each="subj : ${subjects}">
                                 <input type="hidden" name="entryStudentUuid" th:value="${s.uuid}">
                                 <input type="hidden" name="entrySubject" th:value="${subj}">
                                 <input type="number" name="entryScore" min="0" step="0.01"
-                                       th:attr="max=${selectedMaxScore}"
+                                       class="score-cell-input"
+                                       th:attr="max=${selectedMaxScore}, aria-label=${'Score for ' + s.name + ' · ' + subj}"
                                        th:value="${scoreByKey != null and scoreByKey.containsKey(s.uuid + '|' + #strings.toLowerCase(subj))} ? ${scoreByKey.get(s.uuid + '|' + #strings.toLowerCase(subj)).score} : ''"
-                                       placeholder="—"
-                                       style="width:88px; margin:0">
+                                       placeholder="—">
                             </td>
                         </tr>
                         </tbody>
                     </table>
                 </div>
-                <div class="modal-actions" style="margin-top:14px">
-                    <button type="submit" class="btn btn-dark" data-i18n="scores.saveSession">Save scores</button>
+                <div class="modal-actions score-session-actions">
+                    <button type="submit" class="btn btn-dark btn-lg" data-i18n="scores.saveSession">Save all scores</button>
                 </div>
             </form>
         </div>
 
         <p class="muted" th:if="${selectedClassUuid == null}"
-           data-i18n="scores.sessionPickClass">Select a class to load the score table.</p>
+           data-i18n="scores.sessionPickClass">Select a class to load every student in that class.</p>
         <p class="muted" th:if="${sessionReady and !hasSubjects}">
             <span data-i18n="scores.noClassSubjects">This class has no subjects yet.</span>
             <a th:href="@{/admin/classes/{id}/edit(id=${selectedClassUuid})}" data-i18n="scores.editClassSubjects">Add subjects to class</a>

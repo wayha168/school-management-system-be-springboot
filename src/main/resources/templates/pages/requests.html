@@ -49,7 +49,10 @@
                          data-name=${item.subject}">
                 <td th:text="${item.subject}">Subject</td>
                 <td th:text="${item.fromUserName}">User</td>
-                <td th:text="${item.category}">REQUEST</td>
+                <td>
+                    <span th:text="${item.category}">REQUEST</span>
+                    <span th:if="${item.category.name() == 'GPA_VIEW'}" class="role-badge" style="margin-left:6px">GPA</span>
+                </td>
                 <td><span class="role-badge" th:text="${item.status}">OPEN</span></td>
                 <td th:text="${item.createdAt}">—</td>
                 <td><a class="btn btn-ghost" th:href="@{/admin/requests/{id}(id=${item.uuid})}" data-i18n="requests.open">Open</a></td>

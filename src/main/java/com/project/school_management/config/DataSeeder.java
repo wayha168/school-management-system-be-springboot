@@ -63,11 +63,14 @@ public class DataSeeder implements CommandLineRunner {
         seedUser("Super Admin", superAdminEmail, superAdminPassword, RoleName.SUPERADMIN, school);
         seedUser("System Admin", adminEmail, adminPassword, RoleName.ADMIN, school);
         permissionService.seedDefaultsIfEmpty();
-        // Attendance write: Admin/Superadmin manage; Teacher marks classes — not Principal/Staff
-        roleRepository.findByName(RoleName.PRINCIPAL).ifPresent(role ->
-                permissionService.revoke(role.getUuid(), "ATTENDANCE_WRITE"));
-        roleRepository.findByName(RoleName.STAFF).ifPresent(role ->
-                permissionService.revoke(role.getUuid(), "ATTENDANCE_WRITE"));
+        System.out.println("[DataSeeder] Ready — login with " + adminEmail + " / " + adminPassword);
+
+        // Attendance write: Admin/Superadmin manage; Teacher marks classes — not
+        // Principal/Staff
+        roleRepository.findByName(RoleName.PRINCIPAL)
+                .ifPresent(role -> permissionService.revoke(role.getUuid(), "ATTENDANCE_WRITE"));
+        roleRepository.findByName(RoleName.STAFF)
+                .ifPresent(role -> permissionService.revoke(role.getUuid(), "ATTENDANCE_WRITE"));
     }
 
     private void seedRoles() {
@@ -97,11 +100,16 @@ public class DataSeeder implements CommandLineRunner {
     }
 
     private void seedUser(String name, String email, String password, RoleName roleName, SchoolMag school) {
-        if (userRepository.existsByEmail(email)) {
-            return;
-        }
         Role role = roleRepository.findByName(roleName)
                 .orElseThrow(() -> new IllegalStateException(roleName + " role missing"));
-        userRepository.save(new User(name, email, passwordEncoder.encode(password), role, school));
+        userRepository.findByEmail(email).ifPresentOrElse(existing -> {
+            // Keep seed accounts in sync with application.yml so login always matches config
+            existing.setPassword(passwordEncoder.encode(password));
+            existing.setRole(role);
+            existing.setSchool(school);
+            existing.setName(name);
+            userRepository.save(existing);
+        }, () -> userRepository.save(
+                new User(name, email, passwordEncoder.encode(password), role, school)));
     }
 }

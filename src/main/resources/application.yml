@@ -45,6 +45,9 @@ spring:
 
 server:
   port: 8080
+  servlet:
+    session:
+      tracking-modes: cookie
 
 springdoc:
   api-docs:
@@ -65,3 +68,6 @@ app:
   jwt:
     secret: "school-management-jwt-secret-key-change-me-32bytes-min"
     expiration-ms: 86400000
+  assessment:
+    base-url: ${APP_ASSESSMENT_BASE_URL:http://localhost:8081}
+    internal-key: ${APP_ASSESSMENT_INTERNAL_KEY:assessment-internal-key-change-me}

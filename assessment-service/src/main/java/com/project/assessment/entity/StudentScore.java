@@ -1,4 +1,4 @@
-package com.project.school_management.entities;
+package com.project.assessment.entity;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -6,12 +6,7 @@ import java.util.UUID;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.FetchType;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
@@ -31,26 +26,46 @@ import lombok.Setter;
 public class StudentScore {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
     @Column(name = "uuid", nullable = false, updatable = false)
     private UUID uuid;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "student_uuid", nullable = false)
-    private User student;
+    @Column(name = "student_uuid", nullable = false)
+    private UUID studentUuid;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "school_class_uuid", nullable = false)
-    private SchoolClass schoolClass;
+    @Column(name = "student_name", length = 150)
+    private String studentName;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "teacher_uuid", nullable = false)
-    private User teacher;
+    @Column(name = "student_email", length = 150)
+    private String studentEmail;
+
+    @Column(name = "student_grade", length = 50)
+    private String studentGrade;
+
+    @Column(name = "school_uuid")
+    private UUID schoolUuid;
+
+    @Column(name = "school_class_uuid", nullable = false)
+    private UUID schoolClassUuid;
+
+    @Column(name = "class_name", length = 150)
+    private String className;
+
+    @Column(name = "generation")
+    private Integer generation;
+
+    @Column(name = "academic_year")
+    private Integer academicYear;
+
+    @Column(name = "teacher_uuid", nullable = false)
+    private UUID teacherUuid;
+
+    @Column(name = "teacher_name", length = 150)
+    private String teacherName;
 
     @Column(name = "subject", nullable = false, length = 100)
     private String subject;
 
-    @Column(name = "term", length = 50)
+    @Column(name = "term", nullable = false, length = 50)
     private String term;
 
     @Column(name = "score", nullable = false, precision = 6, scale = 2)
@@ -70,6 +85,9 @@ public class StudentScore {
 
     @PrePersist
     void onCreate() {
+        if (uuid == null) {
+            uuid = UUID.randomUUID();
+        }
         createdAt = LocalDateTime.now();
     }
 

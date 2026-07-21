@@ -92,20 +92,7 @@ CREATE TABLE IF NOT EXISTS user_school_classes (
     PRIMARY KEY (user_uuid, school_class_uuid)
 );
 
-CREATE TABLE IF NOT EXISTS student_scores (
-    uuid UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    student_uuid UUID NOT NULL REFERENCES users (uuid),
-    school_class_uuid UUID NOT NULL REFERENCES school_classes (uuid),
-    teacher_uuid UUID NOT NULL REFERENCES users (uuid),
-    subject VARCHAR(100) NOT NULL,
-    term VARCHAR(50),
-    score NUMERIC(6, 2) NOT NULL,
-    max_score NUMERIC(6, 2) NOT NULL DEFAULT 100,
-    remark VARCHAR(255),
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP,
-    CONSTRAINT uq_student_class_subject_term UNIQUE (student_uuid, school_class_uuid, subject, term)
-);
+-- student_scores moved to assessment-service DB (school-assessment)
 
 CREATE TABLE IF NOT EXISTS role_permissions (
     uuid UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -173,9 +160,6 @@ CREATE INDEX IF NOT EXISTS idx_school_classes_grade ON school_classes (grade);
 CREATE INDEX IF NOT EXISTS idx_role_permissions_role_uuid ON role_permissions (role_uuid);
 CREATE INDEX IF NOT EXISTS idx_user_school_classes_user ON user_school_classes (user_uuid);
 CREATE INDEX IF NOT EXISTS idx_user_school_classes_class ON user_school_classes (school_class_uuid);
-CREATE INDEX IF NOT EXISTS idx_student_scores_student ON student_scores (student_uuid);
-CREATE INDEX IF NOT EXISTS idx_student_scores_class ON student_scores (school_class_uuid);
-CREATE INDEX IF NOT EXISTS idx_student_scores_teacher ON student_scores (teacher_uuid);
 CREATE INDEX IF NOT EXISTS idx_attendance_user ON attendance_records (user_uuid);
 CREATE INDEX IF NOT EXISTS idx_attendance_class ON attendance_records (school_class_uuid);
 CREATE INDEX IF NOT EXISTS idx_attendance_date ON attendance_records (attendance_date);

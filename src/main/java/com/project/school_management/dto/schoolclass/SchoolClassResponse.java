@@ -26,10 +26,21 @@ public class SchoolClassResponse {
     private UUID schoolUuid;
     private String schoolName;
     private List<String> subjects;
+    /** Teachers assigned to this class. */
+    private List<UUID> teacherUuids;
+    private List<String> teacherNames;
+    private String teachersLabel;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
     public static SchoolClassResponse from(SchoolClass schoolClass) {
+        return from(schoolClass, List.of(), List.of());
+    }
+
+    public static SchoolClassResponse from(
+            SchoolClass schoolClass,
+            List<UUID> teacherUuids,
+            List<String> teacherNames) {
         Integer generation = schoolClass.getGeneration();
         Integer academicYear = schoolClass.getAcademicYear();
         List<String> subjects = schoolClass.getSubjects() == null
@@ -38,6 +49,9 @@ public class SchoolClassResponse {
                         .filter(s -> s != null && !s.isBlank())
                         .map(String::trim)
                         .toList();
+        List<UUID> teachers = teacherUuids == null ? List.of() : List.copyOf(teacherUuids);
+        List<String> names = teacherNames == null ? List.of() : List.copyOf(teacherNames);
+        String label = names.isEmpty() ? "Unassigned" : String.join(", ", names);
         return SchoolClassResponse.builder()
                 .uuid(schoolClass.getUuid())
                 .name(schoolClass.getName())
@@ -50,6 +64,9 @@ public class SchoolClassResponse {
                 .schoolUuid(schoolClass.getSchool() != null ? schoolClass.getSchool().getUuid() : null)
                 .schoolName(schoolClass.getSchool() != null ? schoolClass.getSchool().getName() : null)
                 .subjects(new ArrayList<>(subjects))
+                .teacherUuids(new ArrayList<>(teachers))
+                .teacherNames(new ArrayList<>(names))
+                .teachersLabel(label)
                 .createdAt(schoolClass.getCreatedAt())
                 .updatedAt(schoolClass.getUpdatedAt())
                 .build();

@@ -1,15 +1,9 @@
 package com.project.school_management.controller.view;
 
 import java.time.LocalDate;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -23,14 +17,10 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
-import com.project.school_management.dto.attendance.AttendanceBatchRequest;
-import com.project.school_management.dto.attendance.AttendanceMarkItem;
 import com.project.school_management.dto.attendance.AttendanceRequest;
 import com.project.school_management.dto.attendance.AttendanceResponse;
-import com.project.school_management.dto.attendance.ClassAttendanceOverview;
 import com.project.school_management.dto.schoolclass.SchoolClassResponse;
 import com.project.school_management.dto.user.DataUser;
-import com.project.school_management.dto.user.UserClassItem;
 import com.project.school_management.dto.user.UserResponse;
 import com.project.school_management.enums.AttendanceStatus;
 import com.project.school_management.enums.RoleName;
@@ -40,6 +30,10 @@ import com.project.school_management.service.presence.PresenceTracker;
 import com.project.school_management.service.schoolclass.SchoolClassService;
 import com.project.school_management.service.user.UserService;
 
+/**
+ * Thin attendance view controller — HTTP/model only.
+ * Business logic is in {@link AttendanceService} / {@link com.project.school_management.service.attendance.AttendanceServiceImpl}.
+ */
 @Controller
 @RequestMapping("/admin/attendance")
 public class AttendanceViewController {
@@ -83,32 +77,18 @@ public class AttendanceViewController {
         try {
             fillCommon(model, authentication, "attendance", "Attendance");
             DataUser account = (DataUser) model.getAttribute("account");
-            boolean management = isManagement(account);
-            // Prefer tab= for client switch; keep view= as alias
-            String activeTab = normalizeView(tab != null ? tab : view, management, account);
-
+            boolean management = attendanceService.isManagement(account);
+            String activeTab = attendanceService.resolveActiveTab(tab, view, account);
             UUID userFilter = account != null && account.getRole() == RoleName.STUDENT ? account.getUuid() : null;
-            RoleName roleFilter = parseRole(role);
+            RoleName roleFilter = attendanceService.parseRole(role);
 
-            List<AttendanceResponse> records = attendanceService.list(date, classUuid, userFilter);
-            if (roleFilter != null) {
-                records = records.stream()
-                        .filter(r -> r.getUserRole() == roleFilter)
-                        .toList();
-            }
-            if (generation != null) {
-                records = records.stream()
-                        .filter(r -> generation.equals(r.getGeneration()))
-                        .toList();
-            }
+            List<AttendanceResponse> records = attendanceService.listFiltered(
+                    date, classUuid, userFilter, roleFilter, generation);
+            List<SchoolClassResponse> filteredClasses = attendanceService.visibleClasses(account, generation);
 
-            List<SchoolClassResponse> classes = visibleClasses(account);
-            List<SchoolClassResponse> filteredClasses = generation == null
-                    ? classes
-                    : classes.stream().filter(c -> generation.equals(c.getGeneration())).toList();
             model.addAttribute("records", records);
             model.addAttribute("classes", filteredClasses);
-            model.addAttribute("classOverviews", buildClassOverviews(filteredClasses));
+            model.addAttribute("classOverviews", attendanceService.buildClassOverviews(filteredClasses));
             model.addAttribute("generations", schoolClassService.listGenerations());
             model.addAttribute("selectedDate", date);
             model.addAttribute("selectedClassUuid", classUuid);
@@ -136,31 +116,21 @@ public class AttendanceViewController {
         try {
             fillCommon(model, authentication, "attendance", "Class attendance");
             DataUser account = (DataUser) model.getAttribute("account");
-            List<SchoolClassResponse> allowed = visibleClasses(account);
-            SchoolClassResponse schoolClass = allowed.stream()
-                    .filter(c -> classUuid.equals(c.getUuid()))
-                    .findFirst()
-                    .orElse(null);
+            SchoolClassResponse schoolClass = attendanceService.findVisibleClass(account, classUuid);
             if (schoolClass == null) {
                 ra.addFlashAttribute("error", "Class not found or not allowed");
                 return "redirect:/admin/attendance";
             }
 
             LocalDate day = date != null ? date : LocalDate.now();
-            List<UserResponse> students = studentsInClass(classUuid);
-            List<UserResponse> teachers = teachersForClass(classUuid);
-            Map<UUID, AttendanceResponse> byUser = attendanceService.list(day, classUuid, null).stream()
-                    .filter(r -> r.getUserUuid() != null)
-                    .collect(Collectors.toMap(AttendanceResponse::getUserUuid, r -> r, (a, b) -> a, LinkedHashMap::new));
-
             var monthChart = attendanceService.classMonthChart(classUuid, 30);
             model.addAttribute("schoolClass", schoolClass);
-            model.addAttribute("teachers", teachers);
-            model.addAttribute("students", students);
-            model.addAttribute("attendanceByUser", byUser);
+            model.addAttribute("teachers", attendanceService.teachersForClass(classUuid));
+            model.addAttribute("students", attendanceService.studentsInClass(classUuid));
+            model.addAttribute("attendanceByUser", attendanceService.attendanceByUser(day, classUuid));
             model.addAttribute("selectedDate", day);
             model.addAttribute("statuses", AttendanceStatus.values());
-            model.addAttribute("canMark", canMark(account));
+            model.addAttribute("canMark", attendanceService.canMark(account));
             model.addAttribute("classMonthLabels", monthChart.getLabels());
             model.addAttribute("classMonthPresent", monthChart.getPresent());
             model.addAttribute("classMonthAbsent", monthChart.getAbsent());
@@ -182,21 +152,17 @@ public class AttendanceViewController {
         fillCommon(model, authentication, "attendance", "Mark attendance");
         DataUser account = (DataUser) model.getAttribute("account");
         LocalDate day = date != null ? date : LocalDate.now();
-        List<SchoolClassResponse> classes = markableClasses(account);
+        List<SchoolClassResponse> classes = attendanceService.markableClasses(account);
         model.addAttribute("classes", classes);
         model.addAttribute("selectedClassUuid", classUuid);
         model.addAttribute("selectedDate", day);
         model.addAttribute("statuses", AttendanceStatus.values());
+
         List<UserResponse> students = List.of();
         Map<UUID, AttendanceResponse> byUser = Map.of();
-        if (classUuid != null) {
-            boolean allowed = classes.stream().anyMatch(c -> classUuid.equals(c.getUuid()));
-            if (allowed) {
-                students = studentsInClass(classUuid);
-                byUser = attendanceService.list(day, classUuid, null).stream()
-                        .filter(r -> r.getUserUuid() != null)
-                        .collect(Collectors.toMap(AttendanceResponse::getUserUuid, r -> r, (a, b) -> a, LinkedHashMap::new));
-            }
+        if (classUuid != null && classes.stream().anyMatch(c -> classUuid.equals(c.getUuid()))) {
+            students = attendanceService.studentsInClass(classUuid);
+            byUser = attendanceService.attendanceByUser(day, classUuid);
         }
         model.addAttribute("students", students);
         model.addAttribute("attendanceByUser", byUser);
@@ -212,18 +178,7 @@ public class AttendanceViewController {
             @RequestParam List<AttendanceStatus> status,
             RedirectAttributes ra) {
         try {
-            AttendanceBatchRequest batch = new AttendanceBatchRequest();
-            batch.setClassUuid(classUuid);
-            batch.setAttendanceDate(attendanceDate);
-            List<AttendanceMarkItem> items = new ArrayList<>();
-            for (int i = 0; i < studentUuid.size(); i++) {
-                AttendanceMarkItem item = new AttendanceMarkItem();
-                item.setUserUuid(studentUuid.get(i));
-                item.setStatus(i < status.size() ? status.get(i) : AttendanceStatus.PRESENT);
-                items.add(item);
-            }
-            batch.setItems(items);
-            int count = attendanceService.markBatch(batch);
+            int count = attendanceService.markFromForm(classUuid, attendanceDate, studentUuid, status);
             ra.addFlashAttribute("success", "Marked " + count + " attendance row(s)");
             return "redirect:/admin/attendance/classes/" + classUuid + "?date=" + attendanceDate;
         } catch (RuntimeException ex) {
@@ -257,132 +212,6 @@ public class AttendanceViewController {
             return "redirect:/admin/attendance/classes/" + classUuid + "?date=" + attendanceDate;
         }
         return "redirect:/admin/attendance?tab=records";
-    }
-
-    private List<ClassAttendanceOverview> buildClassOverviews(List<SchoolClassResponse> classes) {
-        List<UserResponse> allUsers = userService.getAll();
-        List<ClassAttendanceOverview> rows = new ArrayList<>();
-        for (SchoolClassResponse c : classes) {
-            List<String> teacherNames = allUsers.stream()
-                    .filter(u -> u.getRole() == RoleName.TEACHER)
-                    .filter(u -> u.getClasses() != null
-                            && u.getClasses().stream().anyMatch(cl -> c.getUuid().equals(cl.getUuid())))
-                    .map(UserResponse::getName)
-                    .filter(Objects::nonNull)
-                    .sorted()
-                    .toList();
-            int studentCount = (int) allUsers.stream()
-                    .filter(u -> u.getRole() == RoleName.STUDENT)
-                    .filter(u -> u.getClasses() != null
-                            && u.getClasses().stream().anyMatch(cl -> c.getUuid().equals(cl.getUuid())))
-                    .count();
-            String teachersLabel = teacherNames.isEmpty() ? "Unassigned" : String.join(", ", teacherNames);
-            rows.add(ClassAttendanceOverview.builder()
-                    .classUuid(c.getUuid())
-                    .className(c.getName())
-                    .grade(c.getGrade())
-                    .generation(c.getGeneration())
-                    .generationCode(c.getGenerationCode())
-                    .schoolName(c.getSchoolName())
-                    .teacherNames(teacherNames)
-                    .teachersLabel(teachersLabel)
-                    .studentCount(studentCount)
-                    .build());
-        }
-        rows.sort(Comparator.comparing(ClassAttendanceOverview::getClassName, String.CASE_INSENSITIVE_ORDER));
-        return rows;
-    }
-
-    private List<UserResponse> studentsInClass(UUID classUuid) {
-        return userService.getAll().stream()
-                .filter(u -> u.getRole() == RoleName.STUDENT)
-                .filter(u -> u.getClasses() != null
-                        && u.getClasses().stream().anyMatch(c -> classUuid.equals(c.getUuid())))
-                .sorted(Comparator.comparing(UserResponse::getName, String.CASE_INSENSITIVE_ORDER))
-                .toList();
-    }
-
-    private List<UserResponse> teachersForClass(UUID classUuid) {
-        return userService.getAll().stream()
-                .filter(u -> u.getRole() == RoleName.TEACHER)
-                .filter(u -> u.getClasses() != null
-                        && u.getClasses().stream().anyMatch(c -> classUuid.equals(c.getUuid())))
-                .sorted(Comparator.comparing(UserResponse::getName, String.CASE_INSENSITIVE_ORDER))
-                .toList();
-    }
-
-    private List<SchoolClassResponse> visibleClasses(DataUser account) {
-        List<SchoolClassResponse> all = schoolClassService.getAll();
-        if (account == null || account.getRole() == null) {
-            return List.of();
-        }
-        if (isManagement(account) || account.getRole() == RoleName.PRINCIPAL || account.getRole() == RoleName.STAFF) {
-            return all;
-        }
-        if (account.getRole() == RoleName.TEACHER) {
-            return markableClasses(account);
-        }
-        if (account.getRole() == RoleName.STUDENT && account.getClasses() != null) {
-            Set<UUID> mine = account.getClasses().stream().map(UserClassItem::getUuid).collect(Collectors.toSet());
-            return all.stream().filter(c -> mine.contains(c.getUuid())).toList();
-        }
-        return List.of();
-    }
-
-    private List<SchoolClassResponse> markableClasses(DataUser account) {
-        List<SchoolClassResponse> all = schoolClassService.getAll();
-        if (account == null || account.getRole() == null) {
-            return List.of();
-        }
-        if (account.getRole() == RoleName.SUPERADMIN || account.getRole() == RoleName.ADMIN) {
-            return all;
-        }
-        if (account.getRole() == RoleName.TEACHER) {
-            if (account.getClasses() == null || account.getClasses().isEmpty()) {
-                return List.of();
-            }
-            Set<UUID> taught = account.getClasses().stream().map(UserClassItem::getUuid).collect(Collectors.toSet());
-            return all.stream().filter(c -> taught.contains(c.getUuid())).toList();
-        }
-        return List.of();
-    }
-
-    private static boolean isManagement(DataUser account) {
-        return account != null
-                && (account.getRole() == RoleName.SUPERADMIN || account.getRole() == RoleName.ADMIN);
-    }
-
-    private static boolean canMark(DataUser account) {
-        if (account == null || account.getRole() == null) {
-            return false;
-        }
-        return account.getRole() == RoleName.SUPERADMIN
-                || account.getRole() == RoleName.ADMIN
-                || account.getRole() == RoleName.TEACHER;
-    }
-
-    private static String normalizeView(String view, boolean management, DataUser account) {
-        if ("records".equalsIgnoreCase(view)) {
-            return "records";
-        }
-        if ("classes".equalsIgnoreCase(view)) {
-            return "classes";
-        }
-        if (management || (account != null && account.getRole() == RoleName.TEACHER)) {
-            return "classes";
-        }
-        return "records";
-    }
-
-    private static RoleName parseRole(String role) {
-        if (role == null || role.isBlank() || "ALL".equalsIgnoreCase(role)) {
-            return null;
-        }
-        try {
-            return RoleName.valueOf(role.trim().toUpperCase());
-        } catch (Exception ex) {
-            return null;
-        }
     }
 
     private void fillCommon(Model model, Authentication authentication, String activePage, String pageTitle) {

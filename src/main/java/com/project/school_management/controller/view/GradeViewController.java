@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Controller;
@@ -19,6 +20,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
+import com.project.school_management.dto.request.GpaAccessStatus;
 import com.project.school_management.dto.schoolclass.SchoolClassResponse;
 import com.project.school_management.dto.score.ClassStudentGradeRow;
 import com.project.school_management.dto.score.StudentGpaResponse;
@@ -28,6 +30,7 @@ import com.project.school_management.dto.user.UserResponse;
 import com.project.school_management.enums.RoleName;
 import com.project.school_management.exception.UserNotFound;
 import com.project.school_management.service.presence.PresenceTracker;
+import com.project.school_management.service.request.UserRequestService;
 import com.project.school_management.service.schoolclass.SchoolClassService;
 import com.project.school_management.service.score.ScoreService;
 import com.project.school_management.service.user.UserService;
@@ -39,16 +42,19 @@ public class GradeViewController {
     private final ScoreService scoreService;
     private final UserService userService;
     private final SchoolClassService schoolClassService;
+    private final UserRequestService userRequestService;
     private final PresenceTracker presenceTracker;
 
     public GradeViewController(
             ScoreService scoreService,
             UserService userService,
             SchoolClassService schoolClassService,
+            UserRequestService userRequestService,
             PresenceTracker presenceTracker) {
         this.scoreService = scoreService;
         this.userService = userService;
         this.schoolClassService = schoolClassService;
+        this.userRequestService = userRequestService;
         this.presenceTracker = presenceTracker;
     }
 
@@ -136,28 +142,51 @@ public class GradeViewController {
         try {
             fillCommon(model, authentication, "grades", "Student grades");
             DataUser account = (DataUser) model.getAttribute("account");
-            if (account != null && account.getRole() == RoleName.STUDENT
-                    && !account.getUuid().equals(studentUuid)) {
+            boolean isStudentSelf = account != null && account.getRole() == RoleName.STUDENT;
+            if (isStudentSelf && !account.getUuid().equals(studentUuid)) {
                 ra.addFlashAttribute("error", "You can only view your own grades");
                 return "redirect:/admin/grades/" + account.getUuid();
+            }
+
+            model.addAttribute("isStudentSelf", isStudentSelf);
+            model.addAttribute("selectedGeneration", generation);
+            model.addAttribute("selectedTerm", term);
+            model.addAttribute("selectedClassUuid", classUuid);
+
+            if (isStudentSelf) {
+                GpaAccessStatus access = userRequestService.gpaAccessForCurrentUser();
+                model.addAttribute("gpaAccess", access);
+                if (!access.isCanViewGpa()) {
+                    model.addAttribute("gpa", null);
+                    model.addAttribute("generations", List.of());
+                    model.addAttribute("terms", List.of());
+                    model.addAttribute("classStudents", List.of());
+                    return "pages/grade-detail";
+                }
+            } else {
+                model.addAttribute("gpaAccess", null);
             }
 
             StudentGpaResponse gpa = scoreService.getStudentGpa(studentUuid, generation, term);
             model.addAttribute("gpa", gpa);
             model.addAttribute("generations", studentGradeSessions(studentUuid));
             model.addAttribute("terms", scoreService.listScoreTermsForStudent(studentUuid));
-            model.addAttribute("selectedGeneration", generation);
-            model.addAttribute("selectedTerm", term);
-            model.addAttribute("selectedClassUuid", classUuid);
-            model.addAttribute("isStudentSelf",
-                    account != null && account.getRole() == RoleName.STUDENT);
 
-            if (classUuid != null && (account == null || account.getRole() != RoleName.STUDENT)) {
+            if (classUuid != null && !isStudentSelf) {
                 model.addAttribute("classStudents", studentsInClass(classUuid, generation));
             } else {
                 model.addAttribute("classStudents", List.of());
             }
             return "pages/grade-detail";
+        } catch (AccessDeniedException ex) {
+            ra.addFlashAttribute("error", ex.getMessage());
+            if (authentication != null) {
+                DataUser account = userService.getAccountByEmail(authentication.getName());
+                if (account != null && account.getRole() == RoleName.STUDENT) {
+                    return "redirect:/admin/grades/" + account.getUuid();
+                }
+            }
+            return "redirect:/admin/grades";
         } catch (Exception ex) {
             ra.addFlashAttribute("error", ex.getMessage());
             return "redirect:/admin/grades";

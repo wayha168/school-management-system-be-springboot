@@ -5,6 +5,7 @@ import java.util.UUID;
 
 import com.project.school_management.dto.schoolclass.SchoolClassRequest;
 import com.project.school_management.dto.schoolclass.SchoolClassResponse;
+import com.project.school_management.dto.user.UserResponse;
 
 public interface SchoolClassService {
 
@@ -29,4 +30,10 @@ public interface SchoolClassService {
     SchoolClassResponse update(UUID id, SchoolClassRequest request);
 
     void delete(UUID id);
+
+    /** Teachers that can be assigned to classes (school-scoped). */
+    List<UserResponse> listAssignableTeachers();
+
+    /** Teachers currently belonging to a class. */
+    List<UserResponse> teachersForClass(UUID classUuid);
 }

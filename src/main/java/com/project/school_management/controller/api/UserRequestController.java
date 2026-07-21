@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.project.school_management.dto.ApiResponse;
+import com.project.school_management.dto.request.GpaAccessStatus;
 import com.project.school_management.dto.request.UserRequestDto;
 import com.project.school_management.dto.request.UserRequestReplyDto;
 import com.project.school_management.dto.request.UserRequestResponse;
@@ -60,6 +61,19 @@ public class UserRequestController {
         return ResponseEntity.ok(ApiResponse.ok("Requests fetched", userRequestService.listAll(status)));
     }
 
+    @PostMapping("/gpa")
+    @Operation(summary = "Student requests permission to view GPA")
+    public ResponseEntity<ApiResponse<UserRequestResponse>> requestGpa() {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.ok("GPA request submitted", userRequestService.requestGpaAccess()));
+    }
+
+    @GetMapping("/gpa/access")
+    @Operation(summary = "Current user's GPA access status")
+    public ResponseEntity<ApiResponse<GpaAccessStatus>> gpaAccess() {
+        return ResponseEntity.ok(ApiResponse.ok("GPA access status", userRequestService.gpaAccessForCurrentUser()));
+    }
+
     @GetMapping("/{id}")
     @Operation(summary = "Get request by id")
     public ResponseEntity<ApiResponse<UserRequestResponse>> get(@PathVariable UUID id) {
@@ -73,5 +87,23 @@ public class UserRequestController {
             @PathVariable UUID id,
             @Valid @RequestBody UserRequestReplyDto reply) {
         return ResponseEntity.ok(ApiResponse.ok("Request updated", userRequestService.reply(id, reply)));
+    }
+
+    @PutMapping("/{id}/approve")
+    @PreAuthorize("hasAuthority('REQUEST_WRITE')")
+    @Operation(summary = "Principal/Admin approve GPA request")
+    public ResponseEntity<ApiResponse<UserRequestResponse>> approve(
+            @PathVariable UUID id,
+            @RequestParam(required = false) String adminReply) {
+        return ResponseEntity.ok(ApiResponse.ok("GPA request approved", userRequestService.approve(id, adminReply)));
+    }
+
+    @PutMapping("/{id}/reject")
+    @PreAuthorize("hasAuthority('REQUEST_WRITE')")
+    @Operation(summary = "Principal/Admin reject GPA request")
+    public ResponseEntity<ApiResponse<UserRequestResponse>> reject(
+            @PathVariable UUID id,
+            @RequestParam(required = false) String adminReply) {
+        return ResponseEntity.ok(ApiResponse.ok("GPA request rejected", userRequestService.reject(id, adminReply)));
     }
 }
