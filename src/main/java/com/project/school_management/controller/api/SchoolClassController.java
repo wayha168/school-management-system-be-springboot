@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.project.school_management.dto.ApiResponse;
+import com.project.school_management.dto.schoolclass.JoinClassRequest;
 import com.project.school_management.dto.schoolclass.SchoolClassRequest;
 import com.project.school_management.dto.schoolclass.SchoolClassResponse;
 import com.project.school_management.exception.ErrorRuntime;
@@ -109,6 +110,36 @@ public class SchoolClassController {
             throw ex;
         } catch (Exception ex) {
             throw new ErrorRuntime("Delete class failed", ex);
+        }
+    }
+
+    @PostMapping("/join")
+    @PreAuthorize("hasAuthority('CLASS_READ')")
+    @Operation(summary = "Join a class using its join code")
+    public ResponseEntity<ApiResponse<SchoolClassResponse>> joinByCode(
+            @RequestBody JoinClassRequest request) {
+        try {
+            String code = request != null ? request.getJoinCode() : null;
+            return ResponseEntity.ok(ApiResponse.ok("Joined class", schoolClassService.joinByCode(code)));
+        } catch (RuntimeException ex) {
+            throw ex;
+        } catch (Exception ex) {
+            throw new ErrorRuntime("Join class failed", ex);
+        }
+    }
+
+    @PostMapping("/{id}/regenerate-code")
+    @PreAuthorize("hasAuthority('CLASS_WRITE')")
+    @Operation(summary = "Regenerate class join code")
+    public ResponseEntity<ApiResponse<SchoolClassResponse>> regenerateJoinCode(@PathVariable UUID id) {
+        try {
+            return ResponseEntity.ok(ApiResponse.ok(
+                    "Join code regenerated",
+                    schoolClassService.regenerateJoinCode(id)));
+        } catch (RuntimeException ex) {
+            throw ex;
+        } catch (Exception ex) {
+            throw new ErrorRuntime("Regenerate join code failed", ex);
         }
     }
 }

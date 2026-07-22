@@ -50,6 +50,10 @@ public class SchoolClass {
     @Column(name = "academic_year")
     private Integer academicYear;
 
+    /** Short code students/users enter to join this class group. */
+    @Column(name = "join_code", unique = true, length = 12)
+    private String joinCode;
+
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "school_uuid", nullable = false)
     private SchoolMag school;

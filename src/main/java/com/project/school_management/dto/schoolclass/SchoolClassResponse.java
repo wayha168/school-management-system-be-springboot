@@ -25,6 +25,10 @@ public class SchoolClassResponse {
     private String generationDisplay;
     private UUID schoolUuid;
     private String schoolName;
+    private String joinCode;
+    private int memberCount;
+    private int studentCount;
+    private int teacherCount;
     private List<String> subjects;
     /** Teachers assigned to this class. */
     private List<UUID> teacherUuids;
@@ -34,13 +38,22 @@ public class SchoolClassResponse {
     private LocalDateTime updatedAt;
 
     public static SchoolClassResponse from(SchoolClass schoolClass) {
-        return from(schoolClass, List.of(), List.of());
+        return from(schoolClass, List.of(), List.of(), 0, 0);
     }
 
     public static SchoolClassResponse from(
             SchoolClass schoolClass,
             List<UUID> teacherUuids,
             List<String> teacherNames) {
+        return from(schoolClass, teacherUuids, teacherNames, teacherNames == null ? 0 : teacherNames.size(), 0);
+    }
+
+    public static SchoolClassResponse from(
+            SchoolClass schoolClass,
+            List<UUID> teacherUuids,
+            List<String> teacherNames,
+            int teacherCount,
+            int studentCount) {
         Integer generation = schoolClass.getGeneration();
         Integer academicYear = schoolClass.getAcademicYear();
         List<String> subjects = schoolClass.getSubjects() == null
@@ -52,6 +65,8 @@ public class SchoolClassResponse {
         List<UUID> teachers = teacherUuids == null ? List.of() : List.copyOf(teacherUuids);
         List<String> names = teacherNames == null ? List.of() : List.copyOf(teacherNames);
         String label = names.isEmpty() ? "Unassigned" : String.join(", ", names);
+        int safeTeacherCount = Math.max(teacherCount, names.size());
+        int safeStudentCount = Math.max(0, studentCount);
         return SchoolClassResponse.builder()
                 .uuid(schoolClass.getUuid())
                 .name(schoolClass.getName())
@@ -63,6 +78,10 @@ public class SchoolClassResponse {
                 .generationDisplay(GenerationLabels.display(generation, academicYear))
                 .schoolUuid(schoolClass.getSchool() != null ? schoolClass.getSchool().getUuid() : null)
                 .schoolName(schoolClass.getSchool() != null ? schoolClass.getSchool().getName() : null)
+                .joinCode(schoolClass.getJoinCode())
+                .memberCount(safeTeacherCount + safeStudentCount)
+                .studentCount(safeStudentCount)
+                .teacherCount(safeTeacherCount)
                 .subjects(new ArrayList<>(subjects))
                 .teacherUuids(new ArrayList<>(teachers))
                 .teacherNames(new ArrayList<>(names))

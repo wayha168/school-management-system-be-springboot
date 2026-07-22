@@ -20,6 +20,10 @@ public enum Permission {
     CLASS_EDIT,
     CLASS_DELETE,
 
+    //Subject catalog
+    SUBJECT_READ,
+    SUBJECT_WRITE,
+
     //Roles permissions
     ROLES_READ,
     ROLES_WRITE,

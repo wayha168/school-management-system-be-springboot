@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{layout :: layout(~{::section})}">
+<body>
+<section th:fragment="section">
+    <div class="page-toolbar">
+        <div>
+            <h2 class="page-heading" th:text="${mode == 'edit'} ? 'Edit Subject' : 'Add Subject'">Add Subject</h2>
+            <p class="muted">Subjects are reusable across classes for scoring</p>
+        </div>
+        <a class="btn btn-ghost" th:href="@{/admin/subjects}">Back</a>
+    </div>
+
+    <article class="form-card form-card-wide">
+        <form th:action="${mode == 'edit'} ? @{/admin/subjects/{id}/update(id=${item.uuid})} : @{/admin/subjects}"
+              method="post" class="form-grid">
+            <label class="span-2">Name
+                <input name="name" required maxlength="100"
+                       th:value="${item != null} ? ${item.name} : ''"
+                       placeholder="e.g. Mathematics">
+            </label>
+            <label th:if="${mode == 'edit'}">
+                <span>Code</span>
+                <input type="text" readonly
+                       th:value="${item != null} ? ${item.code} : ''"
+                       class="input-readonly"
+                       title="Auto-generated from name">
+            </label>
+            <p class="muted span-3" th:if="${mode != 'edit'}" style="margin:0">
+                Code is generated automatically from the subject name.
+            </p>
+            <label class="span-3">School
+                <select name="schoolUuid" required>
+                    <option value="" disabled th:selected="${item == null}">Select school</option>
+                    <option th:each="school : ${schools}"
+                            th:value="${school.uuid}"
+                            th:text="${school.name}"
+                            th:selected="${item != null and item.schoolUuid == school.uuid}">School</option>
+                </select>
+            </label>
+            <label class="span-3">Description
+                <textarea name="description" rows="3" maxlength="500"
+                          th:text="${item != null} ? ${item.description} : ''"
+                          placeholder="Optional notes"></textarea>
+            </label>
+            <div class="modal-actions span-3">
+                <a class="btn btn-ghost" th:href="@{/admin/subjects}">Cancel</a>
+                <button type="submit" class="btn btn-dark" th:text="${mode == 'edit'} ? 'Save' : 'Create'">Create</button>
+            </div>
+        </form>
+    </article>
+</section>
+</body>
+</html>

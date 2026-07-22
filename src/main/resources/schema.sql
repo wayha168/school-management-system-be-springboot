@@ -54,6 +54,11 @@ CREATE TABLE IF NOT EXISTS school_classes (
 ALTER TABLE school_classes ADD COLUMN IF NOT EXISTS generation INTEGER;
 ALTER TABLE school_classes ADD COLUMN IF NOT EXISTS academic_year INTEGER;
 ALTER TABLE school_classes ADD COLUMN IF NOT EXISTS grade VARCHAR(50);
+ALTER TABLE school_classes ADD COLUMN IF NOT EXISTS join_code VARCHAR(12);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_school_classes_join_code
+    ON school_classes (join_code)
+    WHERE join_code IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS school_class_subjects (
     school_class_uuid UUID NOT NULL REFERENCES school_classes (uuid) ON DELETE CASCADE,
@@ -61,6 +66,21 @@ CREATE TABLE IF NOT EXISTS school_class_subjects (
     sort_order INTEGER NOT NULL,
     PRIMARY KEY (school_class_uuid, sort_order)
 );
+
+CREATE TABLE IF NOT EXISTS subjects (
+    uuid UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name VARCHAR(100) NOT NULL,
+    code VARCHAR(30),
+    description VARCHAR(500),
+    school_uuid UUID NOT NULL REFERENCES school_management (uuid),
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP,
+    CONSTRAINT uq_subjects_school_name UNIQUE (school_uuid, name)
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_subjects_school_code
+    ON subjects (school_uuid, code)
+    WHERE code IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS users (
     uuid UUID PRIMARY KEY DEFAULT gen_random_uuid(),

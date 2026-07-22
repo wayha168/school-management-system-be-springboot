@@ -1,5 +1,6 @@
 package com.project.school_management.service.schoolclass;
 
+import java.security.SecureRandom;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -33,6 +34,10 @@ import com.project.school_management.security.SchoolScopeService;
 @Transactional
 public class SchoolClassServiceImpl implements SchoolClassService {
 
+    private static final String JOIN_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+    private static final int JOIN_CODE_LENGTH = 6;
+    private static final SecureRandom JOIN_CODE_RANDOM = new SecureRandom();
+
     private final SchoolClassRepository schoolClassRepository;
     private final SchoolRepository schoolRepository;
     private final UserRepository userRepository;
@@ -59,6 +64,7 @@ public class SchoolClassServiceImpl implements SchoolClassService {
         schoolClass.setAcademicYear(request.getAcademicYear());
         schoolClass.setSchool(findSchool(request.getSchoolUuid()));
         schoolClass.setSubjects(normalizeSubjects(request.getSubjects()));
+        schoolClass.setJoinCode(generateUniqueJoinCode());
         SchoolClass saved = schoolClassRepository.save(schoolClass);
         if (request.getTeacherUuids() != null) {
             syncTeachers(saved, request.getTeacherUuids());
@@ -211,8 +217,61 @@ public class SchoolClassServiceImpl implements SchoolClassService {
                 .toList();
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public List<UserResponse> membersForClass(UUID classUuid) {
+        SchoolClass schoolClass = findClass(classUuid);
+        if (schoolClass.getSchool() != null) {
+            schoolScopeService.assertSchoolAccess(schoolClass.getSchool().getUuid());
+        }
+        assertTeacherClassAccess(classUuid);
+        return userRepository.findDetailedByClassUuid(classUuid).stream()
+                .map(UserResponse::from)
+                .sorted(Comparator.comparing(
+                        u -> u.getName() == null ? "" : u.getName(),
+                        String.CASE_INSENSITIVE_ORDER))
+                .toList();
+    }
+
+    @Override
+    public SchoolClassResponse joinByCode(String joinCode) {
+        String code = normalizeJoinCode(joinCode);
+        SchoolClass schoolClass = schoolClassRepository.findDetailedByJoinCode(code)
+                .orElseThrow(() -> new ExceptionNotFound("Invalid class join code"));
+        if (schoolClass.getSchool() != null) {
+            schoolScopeService.assertSchoolAccess(schoolClass.getSchool().getUuid());
+        }
+
+        User current = schoolScopeService.requireCurrentUser();
+        User user = userRepository.findDetailedById(current.getUuid())
+                .orElseThrow(() -> new ExceptionNotFound("User not found"));
+
+        if (user.getSchoolClasses() == null) {
+            user.setSchoolClasses(new ArrayList<>());
+        }
+        boolean already = user.getSchoolClasses().stream()
+                .anyMatch(c -> schoolClass.getUuid().equals(c.getUuid()));
+        if (!already) {
+            user.getSchoolClasses().add(schoolClass);
+            userRepository.save(user);
+        }
+        return toResponse(findClass(schoolClass.getUuid()));
+    }
+
+    @Override
+    public SchoolClassResponse regenerateJoinCode(UUID classUuid) {
+        SchoolClass schoolClass = findClass(classUuid);
+        if (schoolClass.getSchool() != null) {
+            schoolScopeService.assertSchoolAccess(schoolClass.getSchool().getUuid());
+        }
+        schoolClass.setJoinCode(generateUniqueJoinCode());
+        schoolClassRepository.save(schoolClass);
+        return toResponse(findClass(classUuid));
+    }
+
     /**
-     * Assign / unassign teachers for a class via the owning {@code User.schoolClasses} side.
+     * Assign / unassign teachers for a class via the owning
+     * {@code User.schoolClasses} side.
      * Student enrollments on the same join table are left untouched.
      */
     private void syncTeachers(SchoolClass schoolClass, List<UUID> teacherUuids) {
@@ -270,7 +329,10 @@ public class SchoolClassServiceImpl implements SchoolClassService {
         return toResponse(schoolClass, teachers);
     }
 
-    /** Batch-map teachers onto classes so admin/superadmin lists stay fast and show Belongs to. */
+    /**
+     * Batch-map teachers onto classes so admin/superadmin lists stay fast and show
+     * Belongs to.
+     */
     private List<SchoolClassResponse> toResponses(List<SchoolClass> classes) {
         if (classes == null || classes.isEmpty()) {
             return List.of();
@@ -294,19 +356,61 @@ public class SchoolClassServiceImpl implements SchoolClassService {
                 .toList();
     }
 
-    private static SchoolClassResponse toResponse(SchoolClass schoolClass, List<User> teachers) {
+    private SchoolClassResponse toResponse(SchoolClass schoolClass, List<User> teachers) {
+        return toResponse(schoolClass, teachers, -1);
+    }
+
+    private SchoolClassResponse toResponse(SchoolClass schoolClass, List<User> teachers, int studentCount) {
         List<User> safe = teachers == null ? List.of() : teachers;
         List<UUID> teacherUuids = safe.stream().map(User::getUuid).toList();
         List<String> teacherNames = safe.stream()
                 .map(User::getName)
                 .filter(n -> n != null && !n.isBlank())
                 .toList();
-        return SchoolClassResponse.from(schoolClass, teacherUuids, teacherNames);
+        int students = studentCount >= 0
+                ? studentCount
+                : (int) userRepository.countByClassUuidAndRole(schoolClass.getUuid(), RoleName.STUDENT);
+        return SchoolClassResponse.from(schoolClass, teacherUuids, teacherNames, teacherNames.size(), students);
     }
 
     private SchoolClass findClass(UUID id) {
-        return schoolClassRepository.findDetailedById(id)
+        SchoolClass schoolClass = schoolClassRepository.findDetailedById(id)
                 .orElseThrow(() -> new ExceptionNotFound("Class not found: " + id));
+        ensureJoinCode(schoolClass);
+        return schoolClass;
+    }
+
+    private void ensureJoinCode(SchoolClass schoolClass) {
+        if (schoolClass.getJoinCode() != null && !schoolClass.getJoinCode().isBlank()) {
+            return;
+        }
+        schoolClass.setJoinCode(generateUniqueJoinCode());
+        schoolClassRepository.save(schoolClass);
+    }
+
+    private String generateUniqueJoinCode() {
+        for (int attempt = 0; attempt < 40; attempt++) {
+            String code = randomJoinCode();
+            if (!schoolClassRepository.existsByJoinCodeIgnoreCase(code)) {
+                return code;
+            }
+        }
+        throw new IllegalStateException("Unable to generate a unique class join code");
+    }
+
+    private static String randomJoinCode() {
+        StringBuilder sb = new StringBuilder(JOIN_CODE_LENGTH);
+        for (int i = 0; i < JOIN_CODE_LENGTH; i++) {
+            sb.append(JOIN_CODE_ALPHABET.charAt(JOIN_CODE_RANDOM.nextInt(JOIN_CODE_ALPHABET.length())));
+        }
+        return sb.toString();
+    }
+
+    private static String normalizeJoinCode(String joinCode) {
+        if (joinCode == null || joinCode.isBlank()) {
+            throw new IllegalArgumentException("Join code is required");
+        }
+        return joinCode.trim().toUpperCase(Locale.ROOT).replace(" ", "");
     }
 
     private SchoolMag findSchool(UUID id) {
@@ -349,7 +453,10 @@ public class SchoolClassServiceImpl implements SchoolClassService {
         }
     }
 
-    /** {@code null} = not a teacher (no extra filter). Empty set = teacher with no classes. */
+    /**
+     * {@code null} = not a teacher (no extra filter). Empty set = teacher with no
+     * classes.
+     */
     private Set<UUID> taughtClassUuidsOrNull() {
         User current = schoolScopeService.requireCurrentUser();
         RoleName role = current.getRole() != null ? current.getRole().getName() : null;

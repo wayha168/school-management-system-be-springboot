@@ -35,6 +35,7 @@ import com.project.school_management.dto.schoolclass.SchoolClassRequest;
 import com.project.school_management.dto.schoolclass.SchoolClassResponse;
 import com.project.school_management.dto.score.ScoreRequest;
 import com.project.school_management.dto.score.ScoreResponse;
+import com.project.school_management.dto.subject.SubjectRequest;
 import com.project.school_management.dto.user.DataUser;
 import com.project.school_management.dto.user.UserRequest;
 import com.project.school_management.dto.user.UserResponse;
@@ -55,6 +56,7 @@ import com.project.school_management.service.role.RoleService;
 import com.project.school_management.service.school.SchoolService;
 import com.project.school_management.service.schoolclass.SchoolClassService;
 import com.project.school_management.service.score.ScoreService;
+import com.project.school_management.service.subject.SubjectService;
 import com.project.school_management.service.user.UserService;
 
 @Controller
@@ -64,6 +66,7 @@ public class AdminViewController {
     private final SchoolService schoolService;
     private final UserService userService;
     private final SchoolClassService schoolClassService;
+    private final SubjectService subjectService;
     private final RoleService roleService;
     private final PermissionService permissionService;
     private final UserRepository userRepository;
@@ -77,6 +80,7 @@ public class AdminViewController {
             SchoolService schoolService,
             UserService userService,
             SchoolClassService schoolClassService,
+            SubjectService subjectService,
             RoleService roleService,
             PermissionService permissionService,
             UserRepository userRepository,
@@ -88,6 +92,7 @@ public class AdminViewController {
         this.schoolService = schoolService;
         this.userService = userService;
         this.schoolClassService = schoolClassService;
+        this.subjectService = subjectService;
         this.roleService = roleService;
         this.permissionService = permissionService;
         this.userRepository = userRepository;
@@ -571,6 +576,7 @@ public class AdminViewController {
         fillCommon(model, authentication, "classes", "Add Class");
         model.addAttribute("schools", schoolService.getAll());
         model.addAttribute("teachers", schoolClassService.listAssignableTeachers());
+        model.addAttribute("catalogSubjects", subjectService.getAll());
         model.addAttribute("mode", "create");
         return "pages/class-form";
     }
@@ -582,6 +588,7 @@ public class AdminViewController {
             fillCommon(model, authentication, "classes", "Class");
             model.addAttribute("item", schoolClassService.getById(id));
             model.addAttribute("teachers", schoolClassService.teachersForClass(id));
+            model.addAttribute("members", schoolClassService.membersForClass(id));
             try {
                 model.addAttribute("meetings", assignmentClient.listMeetings(id));
                 model.addAttribute("assignments", assignmentClient.listAssignments(id));
@@ -606,6 +613,7 @@ public class AdminViewController {
             model.addAttribute("item", schoolClassService.getById(id));
             model.addAttribute("schools", schoolService.getAll());
             model.addAttribute("teachers", schoolClassService.listAssignableTeachers());
+            model.addAttribute("catalogSubjects", subjectService.getAll());
             model.addAttribute("mode", "edit");
             return "pages/class-form";
         } catch (Exception ex) {
@@ -683,6 +691,129 @@ public class AdminViewController {
             ra.addFlashAttribute("error", ex.getMessage());
         }
         return "redirect:/admin/classes";
+    }
+
+    @PostMapping("/classes/join")
+    @PreAuthorize("hasAuthority('CLASS_READ')")
+    public String joinClass(@RequestParam String joinCode, RedirectAttributes ra) {
+        try {
+            SchoolClassResponse joined = schoolClassService.joinByCode(joinCode);
+            ra.addFlashAttribute("success", "Joined class " + joined.getName());
+            return "redirect:/admin/classes/" + joined.getUuid();
+        } catch (RuntimeException ex) {
+            ra.addFlashAttribute("error", ex.getMessage());
+            return "redirect:/admin/classes";
+        }
+    }
+
+    @PostMapping("/classes/{id}/regenerate-code")
+    @PreAuthorize("hasAuthority('CLASS_WRITE')")
+    public String regenerateClassCode(@PathVariable UUID id, RedirectAttributes ra) {
+        try {
+            schoolClassService.regenerateJoinCode(id);
+            ra.addFlashAttribute("success", "Join code regenerated");
+        } catch (RuntimeException ex) {
+            ra.addFlashAttribute("error", ex.getMessage());
+        }
+        return "redirect:/admin/classes/" + id;
+    }
+
+    // ── Subjects ─────────────────────────────────────────────────────────────
+
+    @GetMapping("/subjects")
+    @PreAuthorize("hasAuthority('SUBJECT_READ')")
+    public String subjects(Authentication authentication, Model model, RedirectAttributes ra) {
+        try {
+            fillCommon(model, authentication, "subjects", "Subjects");
+            model.addAttribute("subjects", subjectService.getAll());
+            return "pages/subjects";
+        } catch (Exception ex) {
+            ra.addFlashAttribute("error", "Unable to load subjects");
+            return "redirect:/admin/dashboard";
+        }
+    }
+
+    @GetMapping("/subjects/new")
+    @PreAuthorize("hasAuthority('SUBJECT_WRITE')")
+    public String subjectCreateForm(Authentication authentication, Model model) {
+        fillCommon(model, authentication, "subjects", "Add Subject");
+        model.addAttribute("schools", schoolService.getAll());
+        model.addAttribute("mode", "create");
+        return "pages/subject-form";
+    }
+
+    @GetMapping("/subjects/{id}/edit")
+    @PreAuthorize("hasAuthority('SUBJECT_WRITE')")
+    public String subjectEditForm(
+            @PathVariable UUID id,
+            Authentication authentication,
+            Model model,
+            RedirectAttributes ra) {
+        try {
+            fillCommon(model, authentication, "subjects", "Edit Subject");
+            model.addAttribute("item", subjectService.getById(id));
+            model.addAttribute("schools", schoolService.getAll());
+            model.addAttribute("mode", "edit");
+            return "pages/subject-form";
+        } catch (Exception ex) {
+            ra.addFlashAttribute("error", ex.getMessage());
+            return "redirect:/admin/subjects";
+        }
+    }
+
+    @PostMapping("/subjects")
+    @PreAuthorize("hasAuthority('SUBJECT_WRITE')")
+    public String createSubject(
+            @RequestParam String name,
+            @RequestParam(required = false) String description,
+            @RequestParam UUID schoolUuid,
+            RedirectAttributes ra) {
+        try {
+            SubjectRequest request = new SubjectRequest();
+            request.setName(name);
+            request.setDescription(blankToNull(description));
+            request.setSchoolUuid(schoolUuid);
+            subjectService.create(request);
+            ra.addFlashAttribute("success", "Subject created");
+        } catch (RuntimeException ex) {
+            ra.addFlashAttribute("error", ex.getMessage());
+            return "redirect:/admin/subjects/new";
+        }
+        return "redirect:/admin/subjects";
+    }
+
+    @PostMapping("/subjects/{id}/update")
+    @PreAuthorize("hasAuthority('SUBJECT_WRITE')")
+    public String updateSubject(
+            @PathVariable UUID id,
+            @RequestParam String name,
+            @RequestParam(required = false) String description,
+            @RequestParam UUID schoolUuid,
+            RedirectAttributes ra) {
+        try {
+            SubjectRequest request = new SubjectRequest();
+            request.setName(name);
+            request.setDescription(blankToNull(description));
+            request.setSchoolUuid(schoolUuid);
+            subjectService.update(id, request);
+            ra.addFlashAttribute("success", "Subject updated");
+            return "redirect:/admin/subjects";
+        } catch (RuntimeException ex) {
+            ra.addFlashAttribute("error", ex.getMessage());
+            return "redirect:/admin/subjects/" + id + "/edit";
+        }
+    }
+
+    @PostMapping("/subjects/{id}/delete")
+    @PreAuthorize("hasAuthority('SUBJECT_WRITE')")
+    public String deleteSubject(@PathVariable UUID id, RedirectAttributes ra) {
+        try {
+            subjectService.delete(id);
+            ra.addFlashAttribute("success", "Subject deleted");
+        } catch (RuntimeException ex) {
+            ra.addFlashAttribute("error", ex.getMessage());
+        }
+        return "redirect:/admin/subjects";
     }
 
     // ── Scores ───────────────────────────────────────────────────────────────

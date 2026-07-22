@@ -42,6 +42,15 @@ public interface SchoolClassRepository extends JpaRepository<SchoolClass, UUID> 
     List<SchoolClass> findDetailedByGeneration(@Param("generation") Integer generation);
 
     @Query("""
+            SELECT c FROM SchoolClass c
+            JOIN FETCH c.school
+            WHERE UPPER(c.joinCode) = UPPER(:joinCode)
+            """)
+    Optional<SchoolClass> findDetailedByJoinCode(@Param("joinCode") String joinCode);
+
+    boolean existsByJoinCodeIgnoreCase(String joinCode);
+
+    @Query("""
             SELECT DISTINCT c.generation FROM SchoolClass c
             WHERE c.generation IS NOT NULL
             ORDER BY c.generation

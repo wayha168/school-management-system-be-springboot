@@ -97,4 +97,30 @@ public interface UserRepository extends JpaRepository<User, UUID> {
     List<User> findDetailedByClassAndRole(
             @Param("classUuid") UUID classUuid,
             @Param("role") RoleName role);
+
+    @Query("""
+            SELECT COUNT(DISTINCT u) FROM User u
+            JOIN u.schoolClasses sc
+            WHERE sc.uuid = :classUuid
+            """)
+    long countByClassUuid(@Param("classUuid") UUID classUuid);
+
+    @Query("""
+            SELECT COUNT(DISTINCT u) FROM User u
+            JOIN u.schoolClasses sc
+            WHERE sc.uuid = :classUuid
+              AND u.role.name = :role
+            """)
+    long countByClassUuidAndRole(
+            @Param("classUuid") UUID classUuid,
+            @Param("role") RoleName role);
+
+    @Query("""
+            SELECT DISTINCT u FROM User u
+            JOIN FETCH u.role
+            LEFT JOIN FETCH u.school
+            JOIN FETCH u.schoolClasses sc
+            WHERE sc.uuid = :classUuid
+            """)
+    List<User> findDetailedByClassUuid(@Param("classUuid") UUID classUuid);
 }

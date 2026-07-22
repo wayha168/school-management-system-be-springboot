@@ -11,8 +11,18 @@
                     <h2 class="page-heading" data-i18n="classes.title">Classes</h2>
                     <p class="muted" data-i18n="classes.subtitle">Manage school classes</p>
                 </div>
-                <a class="btn btn-dark" sec:authorize="hasAuthority('CLASS_WRITE')" th:href="@{/admin/classes/new}"
-                   data-i18n="classes.add">Add Class</a>
+                <div class="page-toolbar-actions row" style="gap:8px;flex-wrap:wrap">
+                    <form class="join-class-form row" th:action="@{/admin/classes/join}" method="post"
+                          style="gap:8px;align-items:center;flex-wrap:wrap">
+                        <input name="joinCode" required maxlength="12" placeholder="Join code"
+                               data-i18n-placeholder="classes.joinCode"
+                               aria-label="Class join code"
+                               style="min-width:120px;text-transform:uppercase">
+                        <button type="submit" class="btn btn-soft" data-i18n="classes.join">Join class</button>
+                    </form>
+                    <a class="btn btn-dark" sec:authorize="hasAuthority('CLASS_WRITE')" th:href="@{/admin/classes/new}"
+                       data-i18n="classes.add">Add Class</a>
+                </div>
             </div>
             <div class="classes-toolbar-filters">
                 <input type="search" class="search-input" placeholder="Search name or school..."
@@ -69,6 +79,7 @@
                 <p class="class-card-meta">
                     <span th:text="${item.grade} ?: '—'">11</span>
                     <span class="gen-chip" th:text="${item.generationCode} ?: '—'">G9</span>
+                    <span class="gen-chip" th:text="${item.memberCount + ' members'}">12 members</span>
                 </p>
                 <p class="class-card-school" th:text="${item.schoolName} ?: '—'">Moey</p>
                 <p class="class-card-teachers">

@@ -74,21 +74,25 @@
                 <div class="class-assign-head">
                     <div>
                         <strong>Subjects</strong>
-                        <p class="muted">Used in score sessions for this class.</p>
+                        <p class="muted">Pick from the subject catalog for this school. <a th:href="@{/admin/subjects}">Manage subjects</a></p>
                     </div>
-                    <button type="button" class="btn btn-ghost btn-sm" id="add-subject-row">Add subject</button>
+                    <span class="muted" id="subject-count">0 selected</span>
                 </div>
-                <div class="class-subject-list" id="class-subjects-list">
-                    <div class="class-subject-row" th:each="subj : ${item?.subjects}">
-                        <input type="text" name="subjects" th:value="${subj}"
-                               placeholder="e.g. Math" maxlength="80" autocomplete="off">
-                        <button type="button" class="btn btn-ghost btn-sm remove-subject-row" title="Remove">Remove</button>
-                    </div>
-                    <div class="class-subject-row"
-                         th:if="${item == null or item.subjects == null or #lists.isEmpty(item.subjects)}">
-                        <input type="text" name="subjects" placeholder="e.g. Math" maxlength="80" autocomplete="off">
-                        <button type="button" class="btn btn-ghost btn-sm remove-subject-row" title="Remove">Remove</button>
-                    </div>
+                <div class="class-pick-list" id="subject-pick-list">
+                    <label class="class-pick-item"
+                           th:each="subj : ${catalogSubjects}"
+                           th:attr="data-school-uuid=${subj.schoolUuid}">
+                        <input type="checkbox" name="subjects"
+                               th:value="${subj.name}"
+                               th:checked="${item != null and item.subjects != null and #lists.contains(item.subjects, subj.name)}">
+                        <span class="class-pick-body">
+                            <strong th:text="${subj.name}">Math</strong>
+                            <small class="muted" th:text="${subj.code != null ? subj.code : (subj.schoolName ?: '')}">MATH</small>
+                        </span>
+                    </label>
+                    <p class="muted class-pick-empty" id="subject-pick-empty" hidden>
+                        Select a school to see subjects, or <a th:href="@{/admin/subjects/new}">add a subject</a> first.
+                    </p>
                 </div>
             </div>
 
@@ -99,27 +103,26 @@
         </form>
     </article>
 
-    <template id="subject-row-template">
-        <div class="class-subject-row">
-            <input type="text" name="subjects" placeholder="e.g. Math" maxlength="80" autocomplete="off">
-            <button type="button" class="btn btn-ghost btn-sm remove-subject-row" title="Remove">Remove</button>
-        </div>
-    </template>
-
     <script>
         (function () {
             const schoolSelect = document.getElementById('class-school');
             const pickList = document.getElementById('teacher-pick-list');
             const emptyEl = document.getElementById('teacher-pick-empty');
             const countEl = document.getElementById('teacher-count');
-            const subjectList = document.getElementById('class-subjects-list');
-            const subjectTemplate = document.getElementById('subject-row-template');
-            const addSubjectBtn = document.getElementById('add-subject-row');
+            const subjectPickList = document.getElementById('subject-pick-list');
+            const subjectEmptyEl = document.getElementById('subject-pick-empty');
+            const subjectCountEl = document.getElementById('subject-count');
             if (!schoolSelect || !pickList) return;
 
             function updateTeacherCount() {
                 const n = pickList.querySelectorAll('.class-pick-item:not([hidden]) input[type="checkbox"]:checked').length;
                 if (countEl) countEl.textContent = n + ' selected';
+            }
+
+            function updateSubjectCount() {
+                if (!subjectPickList || !subjectCountEl) return;
+                const n = subjectPickList.querySelectorAll('.class-pick-item:not([hidden]) input[type="checkbox"]:checked').length;
+                subjectCountEl.textContent = n + ' selected';
             }
 
             function filterTeachers() {
@@ -140,33 +143,39 @@
                 updateTeacherCount();
             }
 
-            schoolSelect.addEventListener('change', filterTeachers);
+            function filterSubjects() {
+                if (!subjectPickList) return;
+                const schoolId = schoolSelect.value || '';
+                let visible = 0;
+                subjectPickList.querySelectorAll('.class-pick-item').forEach((item) => {
+                    const itemSchool = item.getAttribute('data-school-uuid') || '';
+                    const match = schoolId !== '' && itemSchool === schoolId;
+                    item.hidden = !match;
+                    if (!match) {
+                        const cb = item.querySelector('input[type="checkbox"]');
+                        if (cb) cb.checked = false;
+                    } else {
+                        visible += 1;
+                    }
+                });
+                if (subjectEmptyEl) subjectEmptyEl.hidden = visible > 0;
+                updateSubjectCount();
+            }
+
+            schoolSelect.addEventListener('change', function () {
+                filterTeachers();
+                filterSubjects();
+            });
             pickList.addEventListener('change', (e) => {
                 if (e.target && e.target.matches('input[type="checkbox"]')) updateTeacherCount();
             });
-            filterTeachers();
-
-            if (subjectList && subjectTemplate && addSubjectBtn) {
-                addSubjectBtn.addEventListener('click', () => {
-                    subjectList.appendChild(subjectTemplate.content.cloneNode(true));
-                    const input = subjectList.querySelector('.class-subject-row:last-child input[name="subjects"]');
-                    if (input) input.focus();
-                });
-
-                subjectList.addEventListener('click', (e) => {
-                    const btn = e.target.closest('.remove-subject-row');
-                    if (!btn) return;
-                    const row = btn.closest('.class-subject-row');
-                    if (!row) return;
-                    const rows = subjectList.querySelectorAll('.class-subject-row');
-                    if (rows.length === 1) {
-                        const input = row.querySelector('input[name="subjects"]');
-                        if (input) input.value = '';
-                        return;
-                    }
-                    row.remove();
+            if (subjectPickList) {
+                subjectPickList.addEventListener('change', (e) => {
+                    if (e.target && e.target.matches('input[type="checkbox"]')) updateSubjectCount();
                 });
             }
+            filterTeachers();
+            filterSubjects();
         })();
     </script>
 </section>

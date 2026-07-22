@@ -1,7 +1,13 @@
-target/
 .git/
 .idea/
 .cursor/
 **/node_modules/
 *.md
 docs/
+
+# Keep packaged JARs for runtime Docker builds; drop the rest of target/
+target/**
+!target/*.jar
+**/target/**
+!**/target/*.jar
+**/*.jar.original

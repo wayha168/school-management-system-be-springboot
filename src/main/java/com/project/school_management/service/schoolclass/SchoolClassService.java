@@ -36,4 +36,13 @@ public interface SchoolClassService {
 
     /** Teachers currently belonging to a class. */
     List<UserResponse> teachersForClass(UUID classUuid);
+
+    /** All members (students + teachers) in a class. */
+    List<UserResponse> membersForClass(UUID classUuid);
+
+    /** Current user joins a class using its join code. */
+    SchoolClassResponse joinByCode(String joinCode);
+
+    /** Regenerate the class join code (admin/teacher with write). */
+    SchoolClassResponse regenerateJoinCode(UUID classUuid);
 }

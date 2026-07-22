@@ -25,6 +25,7 @@
 <body class="admin-body"
       th:attr="data-flash-success=${success}, data-flash-error=${error}">
 <div class="admin-shell">
+    <div class="sidebar-backdrop" data-sidebar-backdrop hidden></div>
     <aside th:replace="~{components/sidebar :: sidebar}"></aside>
     <div class="admin-main">
         <header th:replace="~{components/header :: header}"></header>
@@ -89,6 +90,7 @@
 <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/stompjs@2.3.3/lib/stomp.min.js"></script>
 <script th:src="@{/js/prefs.js}"></script>
+<script th:src="@{/js/sidebar.js}"></script>
 <script th:src="@{/js/header-profile.js}"></script>
 <script th:src="@{/js/notifications.js}"></script>
 <script th:src="@{/js/toast.js}"></script>
