@@ -1,18 +1,3 @@
-# Default stack: school-management (8080) + assessment-service (8081)
-# Both use Windows/host Postgres via host.docker.internal.
-#
-# Start everything:
-#   docker compose up --build
-#
-# Assessment only (run main app in IDE — scores need http://localhost:8081):
-#   docker compose up --build assessment-service
-#
-# Optional Postgres+Redis (empty DB — not your Windows data):
-#   docker compose -f compose.infra.yaml up -d
-#
-# Required host databases:
-#   school-management
-#   school-assessment
 
 services:
   assessment-service:
@@ -31,6 +16,22 @@ services:
       APP_INTERNAL_KEY: assessment-internal-key-change-me
     restart: unless-stopped
 
+  assignment-service:
+    build:
+      context: ./assignment-service
+      dockerfile: Dockerfile
+    ports:
+      - "8082:8082"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://host.docker.internal:5432/school-assignment
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: "0508"
+      APP_JWT_SECRET: school-management-jwt-secret-key-change-me-32bytes-min
+      APP_INTERNAL_KEY: assignment-internal-key-change-me
+    restart: unless-stopped
+
   school-management:
     build:
       context: .
@@ -43,10 +44,12 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://host.docker.internal:5432/school-management
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: "0508"
-      # In-container DNS — score input / GPA call assessment microservice
       APP_ASSESSMENT_BASE_URL: http://assessment-service:8081
       APP_ASSESSMENT_INTERNAL_KEY: assessment-internal-key-change-me
+      APP_ASSIGNMENT_BASE_URL: http://assignment-service:8082
+      APP_ASSIGNMENT_INTERNAL_KEY: assignment-internal-key-change-me
       APP_JWT_SECRET: school-management-jwt-secret-key-change-me-32bytes-min
     depends_on:
       - assessment-service
+      - assignment-service
     restart: unless-stopped

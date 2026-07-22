@@ -14,11 +14,12 @@ Postgres password: `0508`
 
 ## Databases (host Postgres)
 
-Create both if missing:
+Create if missing:
 
 ```sql
 CREATE DATABASE "school-management";
 CREATE DATABASE "school-assessment";
+CREATE DATABASE "school-assignment";
 ```
 
 ## Option A — Docker (both microservices)

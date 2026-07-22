@@ -12,8 +12,87 @@
             <a class="btn btn-dark" th:if="${canAssignAttendance}"
                th:href="@{/admin/attendance/mark}" sec:authorize="hasAuthority('ATTENDANCE_WRITE')"
                data-i18n="dash.assignAttendance">Assign attendance</a>
+            <a class="btn btn-soft" th:if="${canManageClassroom}"
+               th:href="@{/admin/classes}" sec:authorize="hasAnyAuthority('MEETING_WRITE','ASSIGNMENT_WRITE')">
+                Classroom
+            </a>
             <span class="live-badge"><span class="live-dot"></span> <span data-i18n="common.live">Live</span></span>
         </div>
+    </div>
+
+    <article class="panel-card" th:if="${classroomWarning}" style="margin-bottom:14px;border-color:#c45c26">
+        <p class="muted" style="margin:0" th:text="${classroomWarning}">Classroom unavailable</p>
+    </article>
+
+    <div class="chart-grid" style="margin-bottom:14px"
+         sec:authorize="hasAnyAuthority('MEETING_READ','ASSIGNMENT_READ')">
+        <article class="panel-card">
+            <div class="page-intro compact">
+                <div>
+                    <h3 class="section-title">Active class meetings</h3>
+                    <p class="muted">Join Meet / Zoom links for your classes</p>
+                </div>
+                <a class="btn btn-ghost btn-sm" th:href="@{/admin/classes}">Open classes</a>
+            </div>
+            <div class="table-wrap">
+                <table class="data-table">
+                    <thead>
+                    <tr>
+                        <th>Title</th>
+                        <th>Provider</th>
+                        <th>Actions</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <tr th:if="${classroomMeetings == null or #lists.isEmpty(classroomMeetings)}">
+                        <td colspan="3" class="muted">No live meetings.</td>
+                    </tr>
+                    <tr th:each="m : ${classroomMeetings}">
+                        <td th:text="${m.title}">Title</td>
+                        <td th:text="${m.provider}">MEET</td>
+                        <td>
+                            <a class="btn btn-dark btn-sm" th:href="${m.meetingUrl}" target="_blank" rel="noopener">Join</a>
+                            <a class="btn btn-ghost btn-sm"
+                               th:href="@{/admin/classes/{id}(id=${m.classUuid})}">Class</a>
+                        </td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+        </article>
+        <article class="panel-card">
+            <div class="page-intro compact">
+                <div>
+                    <h3 class="section-title">Open assignments</h3>
+                    <p class="muted">Homework due for classes you can access</p>
+                </div>
+                <a class="btn btn-ghost btn-sm" th:if="${canManageClassroom}" th:href="@{/admin/classes}">Manage</a>
+            </div>
+            <div class="table-wrap">
+                <table class="data-table">
+                    <thead>
+                    <tr>
+                        <th>Title</th>
+                        <th>Due</th>
+                        <th>Actions</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <tr th:if="${classroomAssignments == null or #lists.isEmpty(classroomAssignments)}">
+                        <td colspan="3" class="muted">No open assignments.</td>
+                    </tr>
+                    <tr th:each="a : ${classroomAssignments}">
+                        <td th:text="${a.title}">Title</td>
+                        <td th:text="${a.dueAt != null ? #temporals.format(a.dueAt, 'yyyy-MM-dd HH:mm') : '—'}">—</td>
+                        <td>
+                            <a class="btn btn-ghost btn-sm"
+                               th:href="@{/admin/classes/{id}(id=${a.classUuid})}">Open class</a>
+                        </td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+        </article>
     </div>
 
     <div class="summary-grid">

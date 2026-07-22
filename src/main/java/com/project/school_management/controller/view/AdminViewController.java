@@ -48,6 +48,7 @@ import com.project.school_management.security.SchoolScopeService;
 import com.project.school_management.dto.dashboard.ChartSeries;
 import com.project.school_management.dto.dashboard.GpaSummaryStats;
 import com.project.school_management.service.attendance.AttendanceService;
+import com.project.school_management.service.classroom.AssignmentClient;
 import com.project.school_management.service.permission.PermissionService;
 import com.project.school_management.service.presence.PresenceTracker;
 import com.project.school_management.service.role.RoleService;
@@ -70,6 +71,7 @@ public class AdminViewController {
     private final SchoolScopeService schoolScopeService;
     private final ScoreService scoreService;
     private final AttendanceService attendanceService;
+    private final AssignmentClient assignmentClient;
 
     public AdminViewController(
             SchoolService schoolService,
@@ -81,7 +83,8 @@ public class AdminViewController {
             PresenceTracker presenceTracker,
             SchoolScopeService schoolScopeService,
             ScoreService scoreService,
-            AttendanceService attendanceService) {
+            AttendanceService attendanceService,
+            AssignmentClient assignmentClient) {
         this.schoolService = schoolService;
         this.userService = userService;
         this.schoolClassService = schoolClassService;
@@ -92,6 +95,7 @@ public class AdminViewController {
         this.schoolScopeService = schoolScopeService;
         this.scoreService = scoreService;
         this.attendanceService = attendanceService;
+        this.assignmentClient = assignmentClient;
     }
 
     @GetMapping({"/", "/dashboard"})
@@ -162,6 +166,25 @@ public class AdminViewController {
                     && account.getPermissions() != null
                     && account.getPermissions().contains("ATTENDANCE_WRITE");
             model.addAttribute("canAssignAttendance", canAssignAttendance);
+
+            boolean canManageClassroom = account != null
+                    && account.getPermissions() != null
+                    && (account.getPermissions().contains("MEETING_WRITE")
+                            || account.getPermissions().contains("ASSIGNMENT_WRITE"));
+            model.addAttribute("canManageClassroom", canManageClassroom);
+            try {
+                List<UUID> classIds = schoolClassService.getAll().stream()
+                        .map(SchoolClassResponse::getUuid)
+                        .toList();
+                var classroomDash = assignmentClient.dashboard(classIds);
+                model.addAttribute("classroomMeetings", classroomDash.getActiveMeetings());
+                model.addAttribute("classroomAssignments", classroomDash.getOpenAssignments());
+            } catch (Exception ex) {
+                model.addAttribute("classroomMeetings", List.of());
+                model.addAttribute("classroomAssignments", List.of());
+                model.addAttribute("classroomWarning",
+                        "Classroom service unavailable — meetings & assignments need assignment-service on :8082");
+            }
             return "pages/dashboard";
         } catch (UserNotFound | ErrorRuntime ex) {
             // Do not redirect to /login?error — Spring shows that as bad credentials
@@ -559,6 +582,15 @@ public class AdminViewController {
             fillCommon(model, authentication, "classes", "Class");
             model.addAttribute("item", schoolClassService.getById(id));
             model.addAttribute("teachers", schoolClassService.teachersForClass(id));
+            try {
+                model.addAttribute("meetings", assignmentClient.listMeetings(id));
+                model.addAttribute("assignments", assignmentClient.listAssignments(id));
+            } catch (Exception ex) {
+                model.addAttribute("meetings", List.of());
+                model.addAttribute("assignments", List.of());
+                model.addAttribute("classroomWarning",
+                        "Classroom service unavailable — start assignment-service on port 8082");
+            }
             return "pages/class-detail";
         } catch (Exception ex) {
             ra.addFlashAttribute("error", ex.getMessage());

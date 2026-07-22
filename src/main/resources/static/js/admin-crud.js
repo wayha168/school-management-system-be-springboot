@@ -41,6 +41,24 @@
         input.addEventListener("input", () => applyTableFilters(table));
     });
 
+    // Card grid search (classes page)
+    function applyCardFilters(grid) {
+        if (!grid) return;
+        const searchId = grid.id;
+        const input = searchId ? qs(`[data-card-search="${searchId}"]`) : null;
+        const q = input ? input.value.trim().toLowerCase() : "";
+        qsa("[data-search]", grid).forEach((card) => {
+            const hay = (card.getAttribute("data-search") || "").toLowerCase();
+            card.hidden = !(q === "" || hay.includes(q));
+        });
+    }
+
+    qsa("[data-card-search]").forEach((input) => {
+        const grid = document.getElementById(input.getAttribute("data-card-search"));
+        if (!grid) return;
+        input.addEventListener("input", () => applyCardFilters(grid));
+    });
+
     // A–Z name filter bars
     qsa("[data-alpha-filter]").forEach((bar) => {
         const table = document.getElementById(bar.getAttribute("data-alpha-filter"));

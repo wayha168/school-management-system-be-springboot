@@ -48,7 +48,11 @@ public final class RolePermissions {
                     Permission.REQUEST_READ,
                     Permission.REQUEST_WRITE,
                     Permission.ATTENDANCE_READ,
-                    Permission.ATTENDANCE_WRITE);
+                    Permission.ATTENDANCE_WRITE,
+                    Permission.ASSIGNMENT_READ,
+                    Permission.ASSIGNMENT_WRITE,
+                    Permission.MEETING_READ,
+                    Permission.MEETING_WRITE);
             case PRINCIPAL -> EnumSet.of(
                     Permission.SCHOOL_READ,
                     Permission.USER_READ,
@@ -67,7 +71,11 @@ public final class RolePermissions {
                     Permission.FINANCE_READ,
                     Permission.REQUEST_READ,
                     Permission.REQUEST_WRITE,
-                    Permission.ATTENDANCE_READ);
+                    Permission.ATTENDANCE_READ,
+                    Permission.ASSIGNMENT_READ,
+                    Permission.ASSIGNMENT_WRITE,
+                    Permission.MEETING_READ,
+                    Permission.MEETING_WRITE);
             case TEACHER -> EnumSet.of(
                     Permission.SCHOOL_READ,
                     Permission.USER_READ,
@@ -77,7 +85,11 @@ public final class RolePermissions {
                     Permission.SCORE_WRITE,
                     Permission.REQUEST_READ,
                     Permission.ATTENDANCE_READ,
-                    Permission.ATTENDANCE_WRITE);
+                    Permission.ATTENDANCE_WRITE,
+                    Permission.ASSIGNMENT_READ,
+                    Permission.ASSIGNMENT_WRITE,
+                    Permission.MEETING_READ,
+                    Permission.MEETING_WRITE);
             case STAFF -> EnumSet.of(
                     Permission.SCHOOL_READ,
                     Permission.USER_READ,
@@ -94,7 +106,9 @@ public final class RolePermissions {
                     Permission.CLASS_READ,
                     Permission.SCORE_READ,
                     Permission.REQUEST_READ,
-                    Permission.ATTENDANCE_READ);
+                    Permission.ATTENDANCE_READ,
+                    Permission.ASSIGNMENT_READ,
+                    Permission.MEETING_READ);
         };
     }
 }

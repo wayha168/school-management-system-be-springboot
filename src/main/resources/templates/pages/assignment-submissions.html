@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{layout :: layout(~{::section})}">
+<body>
+<section th:fragment="section">
+    <div class="page-toolbar">
+        <div class="page-toolbar-main">
+            <h2 class="page-heading">Assignment submissions</h2>
+            <p class="muted" th:text="${schoolClass != null ? schoolClass.name : 'Class'}">Class</p>
+            <div class="page-toolbar-actions row">
+                <a class="btn btn-ghost"
+                   th:href="@{/admin/classes/{id}(id=${schoolClass.uuid})}">Back to class</a>
+            </div>
+        </div>
+    </div>
+    <article class="panel-card">
+        <div class="table-wrap">
+            <table class="data-table">
+                <thead>
+                <tr>
+                    <th>Student UUID</th>
+                    <th>Content</th>
+                    <th>Submitted</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr th:each="s : ${submissions}">
+                    <td><code th:text="${s.studentUuid}">uuid</code></td>
+                    <td th:text="${s.content}">answer</td>
+                    <td th:text="${s.submittedAt != null ? #temporals.format(s.submittedAt, 'yyyy-MM-dd HH:mm') : '—'}">—</td>
+                </tr>
+                <tr th:if="${#lists.isEmpty(submissions)}">
+                    <td colspan="3" class="muted">No submissions yet.</td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    </article>
+</section>
+</body>
+</html>

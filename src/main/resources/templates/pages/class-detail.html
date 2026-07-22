@@ -6,31 +6,43 @@
 <section th:fragment="section">
     <div class="page-toolbar">
         <div class="page-toolbar-main">
-            <h2 class="page-heading">Class details</h2>
-            <p class="muted" th:text="${item.name}">Class</p>
-            <div class="page-toolbar-actions row">
-                <a class="btn btn-ghost" th:href="@{/admin/classes}">Back</a>
-                <a class="btn btn-dark" sec:authorize="hasAuthority('CLASS_WRITE')"
-                   th:href="@{/admin/classes/{id}/edit(id=${item.uuid})}">Edit</a>
+            <div class="classes-toolbar-head">
+                <div>
+                    <h2 class="page-heading">Class details</h2>
+                    <p class="muted" th:text="${item.name}">Class</p>
+                </div>
+                <div class="page-toolbar-actions row">
+                    <a class="btn btn-ghost" th:href="@{/admin/classes}">Back</a>
+                    <a class="btn btn-dark" sec:authorize="hasAuthority('CLASS_WRITE')"
+                       th:href="@{/admin/classes/{id}/edit(id=${item.uuid})}">Edit</a>
+                </div>
             </div>
         </div>
     </div>
-    <article class="form-card">
-        <div class="detail-grid">
-            <div><span class="label">ID</span><p><code th:text="${item.uuid}">uuid</code></p></div>
+
+    <article class="form-card form-card-wide class-detail-card">
+        <div class="detail-grid detail-grid-3">
             <div><span class="label">Name</span><p th:text="${item.name}">Name</p></div>
             <div><span class="label">Grade</span><p th:text="${item.grade} ?: '—'">Grade</p></div>
-            <div><span class="label">Generation</span><p th:text="${item.generationDisplay} ?: (item.generationCode ?: '—')">G9 · 9th generation</p></div>
+            <div><span class="label">Generation</span>
+                <p th:text="${item.generationDisplay} ?: (item.generationCode ?: '—')">G9 · 9th generation</p>
+            </div>
             <div><span class="label">Academic year</span><p th:text="${item.academicYear} ?: '—'">2025</p></div>
             <div><span class="label">School</span><p th:text="${item.schoolName}">School</p></div>
-            <div><span class="label">Belongs to (teachers)</span>
+            <div><span class="label">Status</span><p class="status-text status-active">Active</p></div>
+            <div class="detail-span-2">
+                <span class="label">Belongs to (teachers)</span>
                 <p th:text="${item.teachersLabel} ?: 'Unassigned'">Unassigned</p>
             </div>
-            <div><span class="label">Status</span><p class="status-text status-active">Active</p></div>
+            <div>
+                <span class="label">ID</span>
+                <p><code class="id-chip" th:title="${item.uuid}"
+                         th:text="${#strings.substring(item.uuid.toString(),0,8) + '…'}">199aa45f…</code></p>
+            </div>
         </div>
     </article>
 
-    <article class="panel-card" style="margin-top:14px" th:if="${teachers != null and !#lists.isEmpty(teachers)}">
+    <article class="panel-card class-detail-panel" th:if="${teachers != null and !#lists.isEmpty(teachers)}">
         <h3 class="section-title" style="margin-top:0">Teachers</h3>
         <div class="table-wrap">
             <table class="data-table">
@@ -52,7 +64,7 @@
         </div>
     </article>
 
-    <article class="panel-card" style="margin-top:14px">
+    <article class="panel-card class-detail-panel">
         <h3 class="section-title" style="margin-top:0">Subjects</h3>
         <div class="table-wrap" th:if="${item.subjects != null and !#lists.isEmpty(item.subjects)}">
             <table class="data-table">
@@ -73,6 +85,148 @@
         <p class="muted" style="margin:0" th:if="${item.subjects == null or #lists.isEmpty(item.subjects)}">
             No subjects yet. Edit this class to add subjects for score sessions.
         </p>
+    </article>
+
+    <p class="muted" th:if="${classroomWarning}" style="margin-top:14px;color:#a33"
+       th:text="${classroomWarning}">Classroom unavailable</p>
+
+    <!-- Meetings (Meet / Zoom links) -->
+    <article class="panel-card classroom-section class-detail-panel" sec:authorize="hasAuthority('MEETING_READ')">
+        <div class="page-intro compact">
+            <div>
+                <h3 class="section-title" style="margin-top:0">Class video meeting</h3>
+                <p class="muted">Paste a Google Meet or Zoom link for the class group (Classroom style).</p>
+            </div>
+        </div>
+
+        <form sec:authorize="hasAuthority('MEETING_WRITE')"
+              th:action="@{/admin/classroom/meetings}" method="post" class="classroom-form-row">
+            <input type="hidden" name="classUuid" th:value="${item.uuid}">
+            <label>Title
+                <input name="title" required placeholder="e.g. Math live class" maxlength="200">
+            </label>
+            <label>Meeting URL
+                <input name="meetingUrl" type="url" required placeholder="https://meet.google.com/...">
+            </label>
+            <label>Schedule (optional)
+                <input name="scheduledAt" type="datetime-local">
+            </label>
+            <button type="submit" class="btn btn-dark">Start meeting</button>
+        </form>
+
+        <div class="table-wrap" th:if="${meetings != null and !#lists.isEmpty(meetings)}">
+            <table class="data-table">
+                <thead>
+                <tr>
+                    <th>Title</th>
+                    <th>Provider</th>
+                    <th>Scheduled</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr th:each="m : ${meetings}">
+                    <td th:text="${m.title}">Title</td>
+                    <td th:text="${m.provider}">MEET</td>
+                    <td th:text="${m.scheduledAt != null ? #temporals.format(m.scheduledAt, 'yyyy-MM-dd HH:mm') : '—'}">—</td>
+                    <td>
+                        <span th:if="${m.active}" class="status-text status-active">Live</span>
+                        <span th:unless="${m.active}" class="muted">Ended</span>
+                    </td>
+                    <td>
+                        <a class="btn btn-dark btn-sm" th:href="${m.meetingUrl}" target="_blank" rel="noopener">Join</a>
+                        <form sec:authorize="hasAuthority('MEETING_WRITE')"
+                              th:if="${m.active}"
+                              th:action="@{/admin/classroom/meetings/{id}/end(id=${m.uuid})}"
+                              method="post" style="display:inline">
+                            <input type="hidden" name="classUuid" th:value="${item.uuid}">
+                            <button type="submit" class="btn btn-ghost btn-sm">End</button>
+                        </form>
+                    </td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+        <p class="muted" th:if="${meetings == null or #lists.isEmpty(meetings)}">No meetings yet.</p>
+    </article>
+
+    <!-- Homework assignments -->
+    <article class="panel-card classroom-section class-detail-panel" sec:authorize="hasAuthority('ASSIGNMENT_READ')">
+        <div class="page-intro compact">
+            <div>
+                <h3 class="section-title" style="margin-top:0">Assignments</h3>
+                <p class="muted">Create homework with due dates; students submit text or a link.</p>
+            </div>
+        </div>
+
+        <form sec:authorize="hasAuthority('ASSIGNMENT_WRITE')"
+              th:action="@{/admin/classroom/assignments}" method="post" class="classroom-form-row">
+            <input type="hidden" name="classUuid" th:value="${item.uuid}">
+            <label>Title
+                <input name="title" required placeholder="e.g. Chapter 3 worksheet" maxlength="200">
+            </label>
+            <label>Description
+                <input name="description" placeholder="Instructions (optional)">
+            </label>
+            <label>Due
+                <input name="dueAt" type="datetime-local">
+            </label>
+            <button type="submit" class="btn btn-dark">New assignment</button>
+        </form>
+
+        <div class="table-wrap" th:if="${assignments != null and !#lists.isEmpty(assignments)}">
+            <table class="data-table">
+                <thead>
+                <tr>
+                    <th>Title</th>
+                    <th>Due</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr th:each="a : ${assignments}">
+                    <td>
+                        <strong th:text="${a.title}">Title</strong>
+                        <p class="muted" style="margin:4px 0 0" th:if="${a.description}" th:text="${a.description}">Desc</p>
+                    </td>
+                    <td th:text="${a.dueAt != null ? #temporals.format(a.dueAt, 'yyyy-MM-dd HH:mm') : '—'}">—</td>
+                    <td th:text="${a.status}">OPEN</td>
+                    <td>
+                        <div style="display:flex;flex-direction:column;gap:8px;align-items:flex-start">
+                            <form th:if="${a.status == 'OPEN'}"
+                                  th:action="@{/admin/classroom/assignments/{id}/submit(id=${a.uuid})}"
+                                  method="post"
+                                  sec:authorize="hasAuthority('ASSIGNMENT_READ')"
+                                  style="display:flex;gap:8px;flex-wrap:wrap;align-items:end">
+                                <input type="hidden" name="classUuid" th:value="${item.uuid}">
+                                <label style="margin:0">Submit
+                                    <input name="content" required placeholder="Answer or URL" style="min-width:200px">
+                                </label>
+                                <button type="submit" class="btn btn-soft btn-sm">Submit</button>
+                            </form>
+                            <div class="row" style="gap:6px">
+                                <a class="btn btn-ghost btn-sm"
+                                   sec:authorize="hasAuthority('ASSIGNMENT_WRITE')"
+                                   th:href="@{/admin/classroom/assignments/{id}/submissions(id=${a.uuid}, classUuid=${item.uuid})}">
+                                    Submissions
+                                </a>
+                                <form sec:authorize="hasAuthority('ASSIGNMENT_WRITE')"
+                                      th:if="${a.status == 'OPEN'}"
+                                      th:action="@{/admin/classroom/assignments/{id}/close(id=${a.uuid})}"
+                                      method="post" style="display:inline">
+                                    <input type="hidden" name="classUuid" th:value="${item.uuid}">
+                                    <button type="submit" class="btn btn-ghost btn-sm">Close</button>
+                                </form>
+                            </div>
+                        </div>
+                    </td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+        <p class="muted" th:if="${assignments == null or #lists.isEmpty(assignments)}">No assignments yet.</p>
     </article>
 </section>
 </body>

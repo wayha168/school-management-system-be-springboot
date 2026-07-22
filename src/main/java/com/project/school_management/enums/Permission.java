@@ -59,4 +59,10 @@ public enum Permission {
     //Attendance
     ATTENDANCE_READ,
     ATTENDANCE_WRITE,
+
+    //Classroom assignments / meetings
+    ASSIGNMENT_READ,
+    ASSIGNMENT_WRITE,
+    MEETING_READ,
+    MEETING_WRITE,
 }

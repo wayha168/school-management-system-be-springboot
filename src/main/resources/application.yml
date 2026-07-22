@@ -71,3 +71,6 @@ app:
   assessment:
     base-url: ${APP_ASSESSMENT_BASE_URL:http://localhost:8081}
     internal-key: ${APP_ASSESSMENT_INTERNAL_KEY:assessment-internal-key-change-me}
+  assignment:
+    base-url: ${APP_ASSIGNMENT_BASE_URL:http://localhost:8082}
+    internal-key: ${APP_ASSIGNMENT_INTERNAL_KEY:assignment-internal-key-change-me}

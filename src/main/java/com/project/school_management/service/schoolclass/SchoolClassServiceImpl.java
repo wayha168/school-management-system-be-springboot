@@ -2,9 +2,11 @@ package com.project.school_management.service.schoolclass;
 
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
@@ -78,13 +80,10 @@ public class SchoolClassServiceImpl implements SchoolClassService {
     @Override
     @Transactional(readOnly = true)
     public List<SchoolClassResponse> getAll() {
-        List<SchoolClassResponse> classes = schoolScopeService.scopedSchoolUuid()
-                .map(uuid -> schoolClassRepository.findDetailedBySchoolUuid(uuid).stream()
-                        .map(this::toResponse)
-                        .toList())
-                .orElseGet(() -> schoolClassRepository.findAllDetailed().stream()
-                        .map(this::toResponse)
-                        .toList());
+        List<SchoolClass> entities = schoolScopeService.scopedSchoolUuid()
+                .map(schoolClassRepository::findDetailedBySchoolUuid)
+                .orElseGet(schoolClassRepository::findAllDetailed);
+        List<SchoolClassResponse> classes = toResponses(entities);
         return filterTeacherClasses(classes).stream()
                 .sorted(Comparator.comparing(
                         c -> c.getName() == null ? "" : c.getName(),
@@ -96,20 +95,17 @@ public class SchoolClassServiceImpl implements SchoolClassService {
     @Transactional(readOnly = true)
     public List<SchoolClassResponse> getBySchool(UUID schoolUuid) {
         schoolScopeService.assertSchoolAccess(schoolUuid);
-        return filterTeacherClasses(schoolClassRepository.findDetailedBySchoolUuid(schoolUuid).stream()
-                .map(this::toResponse)
-                .toList());
+        return filterTeacherClasses(toResponses(schoolClassRepository.findDetailedBySchoolUuid(schoolUuid)));
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<SchoolClassResponse> getByGeneration(Integer generation) {
-        return filterTeacherClasses(schoolClassRepository.findDetailedByGeneration(generation).stream()
+        return filterTeacherClasses(toResponses(schoolClassRepository.findDetailedByGeneration(generation).stream()
                 .filter(c -> c.getSchool() == null
                         || schoolScopeService.scopedSchoolUuid().isEmpty()
                         || schoolScopeService.scopedSchoolUuid().get().equals(c.getSchool().getUuid()))
-                .map(this::toResponse)
-                .toList());
+                .toList()));
     }
 
     @Override
@@ -271,8 +267,37 @@ public class SchoolClassServiceImpl implements SchoolClassService {
     private SchoolClassResponse toResponse(SchoolClass schoolClass) {
         List<User> teachers = userRepository.findDetailedByClassAndRole(
                 schoolClass.getUuid(), RoleName.TEACHER);
-        List<UUID> teacherUuids = teachers.stream().map(User::getUuid).toList();
-        List<String> teacherNames = teachers.stream()
+        return toResponse(schoolClass, teachers);
+    }
+
+    /** Batch-map teachers onto classes so admin/superadmin lists stay fast and show Belongs to. */
+    private List<SchoolClassResponse> toResponses(List<SchoolClass> classes) {
+        if (classes == null || classes.isEmpty()) {
+            return List.of();
+        }
+        Map<UUID, List<User>> teachersByClass = new HashMap<>();
+        for (User teacher : userRepository.findDetailedByRole(RoleName.TEACHER)) {
+            if (teacher.getSchoolClasses() == null) {
+                continue;
+            }
+            for (SchoolClass taught : teacher.getSchoolClasses()) {
+                if (taught == null || taught.getUuid() == null) {
+                    continue;
+                }
+                teachersByClass
+                        .computeIfAbsent(taught.getUuid(), key -> new ArrayList<>())
+                        .add(teacher);
+            }
+        }
+        return classes.stream()
+                .map(c -> toResponse(c, teachersByClass.getOrDefault(c.getUuid(), List.of())))
+                .toList();
+    }
+
+    private static SchoolClassResponse toResponse(SchoolClass schoolClass, List<User> teachers) {
+        List<User> safe = teachers == null ? List.of() : teachers;
+        List<UUID> teacherUuids = safe.stream().map(User::getUuid).toList();
+        List<String> teacherNames = safe.stream()
                 .map(User::getName)
                 .filter(n -> n != null && !n.isBlank())
                 .toList();
