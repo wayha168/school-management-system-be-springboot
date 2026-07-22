@@ -30,7 +30,7 @@
             <div class="page-intro compact">
                 <div>
                     <h3 class="section-title">Active class meetings</h3>
-                    <p class="muted">Join Meet / Zoom links for your classes</p>
+                    <p class="muted">Join in-app video calls for your classes</p>
                 </div>
                 <a class="btn btn-ghost btn-sm" th:href="@{/admin/classes}">Open classes</a>
             </div>
@@ -39,7 +39,7 @@
                     <thead>
                     <tr>
                         <th>Title</th>
-                        <th>Provider</th>
+                        <th>Room</th>
                         <th>Actions</th>
                     </tr>
                     </thead>
@@ -49,9 +49,9 @@
                     </tr>
                     <tr th:each="m : ${classroomMeetings}">
                         <td th:text="${m.title}">Title</td>
-                        <td th:text="${m.provider}">MEET</td>
+                        <td><code th:text="${m.roomCode} ?: m.provider">ROOM</code></td>
                         <td>
-                            <a class="btn btn-dark btn-sm" th:href="${m.meetingUrl}" target="_blank" rel="noopener">Join</a>
+                            <a class="btn btn-dark btn-sm" th:href="${m.resolveJoinPath()}">Join</a>
                             <a class="btn btn-ghost btn-sm"
                                th:href="@{/admin/classes/{id}(id=${m.classUuid})}">Class</a>
                         </td>

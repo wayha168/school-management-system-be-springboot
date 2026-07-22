@@ -44,7 +44,8 @@ public class SecurityConfig {
                                                 "/api/v1/**",
                                                 "/v3/api-docs/**",
                                                 "/swagger-ui/**",
-                                                "/ws/**"))
+                                                "/ws/**",
+                                                "/admin/classroom/meetings/*/recording"))
                                 .sessionManagement(session -> session
                                 .sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED)
                                 .sessionFixation(fixation -> fixation.changeSessionId()))

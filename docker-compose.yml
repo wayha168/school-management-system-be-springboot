@@ -30,6 +30,11 @@ services:
       SPRING_DATASOURCE_PASSWORD: "0508"
       APP_JWT_SECRET: school-management-jwt-secret-key-change-me-32bytes-min
       APP_INTERNAL_KEY: assignment-internal-key-change-me
+      APP_RECORDINGS_DIR: /data/recordings
+      APP_SUBMISSIONS_DIR: /data/submissions
+    volumes:
+      - assignment-recordings:/data/recordings
+      - assignment-submissions:/data/submissions
     restart: unless-stopped
 
   school-management:
@@ -53,3 +58,7 @@ services:
       - assessment-service
       - assignment-service
     restart: unless-stopped
+
+volumes:
+  assignment-recordings:
+  assignment-submissions:

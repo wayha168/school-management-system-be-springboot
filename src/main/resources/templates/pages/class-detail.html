@@ -30,9 +30,23 @@
             <div><span class="label">Academic year</span><p th:text="${item.academicYear} ?: '—'">2025</p></div>
             <div><span class="label">School</span><p th:text="${item.schoolName}">School</p></div>
             <div><span class="label">Status</span><p class="status-text status-active">Active</p></div>
-            <div class="detail-span-2">
-                <span class="label">Belongs to (teachers)</span>
-                <p th:text="${item.teachersLabel} ?: 'Unassigned'">Unassigned</p>
+            <div class="detail-span-3">
+                <span class="label">Teachers</span>
+                <div class="chips" th:if="${item.teacherNames != null and !#lists.isEmpty(item.teacherNames)}">
+                    <span class="info-chip" th:each="name : ${item.teacherNames}" th:text="${name}">Teacher</span>
+                </div>
+                <p class="muted" th:if="${item.teacherNames == null or #lists.isEmpty(item.teacherNames)}">Unassigned</p>
+            </div>
+            <div class="detail-span-3">
+                <span class="label">Subjects</span>
+                <div class="chips" th:if="${item.subjects != null and !#lists.isEmpty(item.subjects)}">
+                    <span class="info-chip" th:each="subj : ${item.subjects}" th:text="${subj}">Math</span>
+                </div>
+                <p class="muted" th:if="${item.subjects == null or #lists.isEmpty(item.subjects)}">
+                    No subjects yet.
+                    <a sec:authorize="hasAuthority('CLASS_WRITE')"
+                       th:href="@{/admin/classes/{id}/edit(id=${item.uuid})}">Add subjects</a>
+                </p>
             </div>
             <div>
                 <span class="label">ID</span>
@@ -42,60 +56,15 @@
         </div>
     </article>
 
-    <article class="panel-card class-detail-panel" th:if="${teachers != null and !#lists.isEmpty(teachers)}">
-        <h3 class="section-title" style="margin-top:0">Teachers</h3>
-        <div class="table-wrap">
-            <table class="data-table">
-                <thead>
-                <tr>
-                    <th style="width:56px">#</th>
-                    <th>Name</th>
-                    <th>Email</th>
-                </tr>
-                </thead>
-                <tbody>
-                <tr th:each="t, iter : ${teachers}">
-                    <td th:text="${iter.count}">1</td>
-                    <td th:text="${t.name}">Name</td>
-                    <td th:text="${t.email}">email</td>
-                </tr>
-                </tbody>
-            </table>
-        </div>
-    </article>
-
-    <article class="panel-card class-detail-panel">
-        <h3 class="section-title" style="margin-top:0">Subjects</h3>
-        <div class="table-wrap" th:if="${item.subjects != null and !#lists.isEmpty(item.subjects)}">
-            <table class="data-table">
-                <thead>
-                <tr>
-                    <th style="width:56px">#</th>
-                    <th>Subject</th>
-                </tr>
-                </thead>
-                <tbody>
-                <tr th:each="subj, iter : ${item.subjects}">
-                    <td th:text="${iter.count}">1</td>
-                    <td th:text="${subj}">Math</td>
-                </tr>
-                </tbody>
-            </table>
-        </div>
-        <p class="muted" style="margin:0" th:if="${item.subjects == null or #lists.isEmpty(item.subjects)}">
-            No subjects yet. Edit this class to add subjects for score sessions.
-        </p>
-    </article>
-
     <p class="muted" th:if="${classroomWarning}" style="margin-top:14px;color:#a33"
        th:text="${classroomWarning}">Classroom unavailable</p>
 
-    <!-- Meetings (Meet / Zoom links) -->
+    <!-- Native video meetings -->
     <article class="panel-card classroom-section class-detail-panel" sec:authorize="hasAuthority('MEETING_READ')">
         <div class="page-intro compact">
             <div>
                 <h3 class="section-title" style="margin-top:0">Class video meeting</h3>
-                <p class="muted">Paste a Google Meet or Zoom link for the class group (Classroom style).</p>
+                <p class="muted">Create an in-app video call. A join link is generated automatically — no Meet/Zoom URL.</p>
             </div>
         </div>
 
@@ -105,13 +74,14 @@
             <label>Title
                 <input name="title" required placeholder="e.g. Math live class" maxlength="200">
             </label>
-            <label>Meeting URL
-                <input name="meetingUrl" type="url" required placeholder="https://meet.google.com/...">
-            </label>
             <label>Schedule (optional)
                 <input name="scheduledAt" type="datetime-local">
             </label>
-            <button type="submit" class="btn btn-dark">Start meeting</button>
+            <label class="classroom-check">
+                <input type="checkbox" name="recordEnabled" value="true">
+                Allow recording &amp; store video
+            </label>
+            <button type="submit" class="btn btn-dark">Start video call</button>
         </form>
 
         <div class="table-wrap" th:if="${meetings != null and !#lists.isEmpty(meetings)}">
@@ -119,7 +89,8 @@
                 <thead>
                 <tr>
                     <th>Title</th>
-                    <th>Provider</th>
+                    <th>Room</th>
+                    <th>Record</th>
                     <th>Scheduled</th>
                     <th>Status</th>
                     <th>Actions</th>
@@ -128,14 +99,33 @@
                 <tbody>
                 <tr th:each="m : ${meetings}">
                     <td th:text="${m.title}">Title</td>
-                    <td th:text="${m.provider}">MEET</td>
+                    <td>
+                        <code th:text="${m.roomCode} ?: '—'">ROOM</code>
+                    </td>
+                    <td>
+                        <span th:if="${m.recordEnabled}">On</span>
+                        <span th:unless="${m.recordEnabled}" class="muted">Off</span>
+                        <span th:if="${m.hasRecording}"> · saved</span>
+                    </td>
                     <td th:text="${m.scheduledAt != null ? #temporals.format(m.scheduledAt, 'yyyy-MM-dd HH:mm') : '—'}">—</td>
                     <td>
                         <span th:if="${m.active}" class="status-text status-active">Live</span>
                         <span th:unless="${m.active}" class="muted">Ended</span>
                     </td>
-                    <td>
-                        <a class="btn btn-dark btn-sm" th:href="${m.meetingUrl}" target="_blank" rel="noopener">Join</a>
+                    <td class="row" style="gap:6px;flex-wrap:wrap">
+                        <a class="btn btn-dark btn-sm"
+                           th:href="${m.resolveJoinPath()}"
+                           th:if="${m.roomCode != null or (m.meetingUrl != null and m.meetingUrl.startsWith('/'))}">Join</a>
+                        <a class="btn btn-dark btn-sm"
+                           th:unless="${m.roomCode != null or (m.meetingUrl != null and m.meetingUrl.startsWith('/'))}"
+                           th:href="${m.meetingUrl}" target="_blank" rel="noopener">Join</a>
+                        <button type="button" class="btn btn-ghost btn-sm copy-join-btn"
+                                th:if="${m.roomCode != null}"
+                                th:attr="data-join-path=${m.resolveJoinPath()}">Copy link</button>
+                        <a class="btn btn-ghost btn-sm"
+                           th:if="${m.hasRecording}"
+                           th:href="@{/admin/classroom/meetings/{id}/recording(id=${m.uuid})}"
+                           target="_blank" rel="noopener">Recording</a>
                         <form sec:authorize="hasAuthority('MEETING_WRITE')"
                               th:if="${m.active}"
                               th:action="@{/admin/classroom/meetings/{id}/end(id=${m.uuid})}"
@@ -149,6 +139,21 @@
             </table>
         </div>
         <p class="muted" th:if="${meetings == null or #lists.isEmpty(meetings)}">No meetings yet.</p>
+        <script>
+            document.querySelectorAll('.copy-join-btn').forEach(function (btn) {
+                btn.addEventListener('click', async function () {
+                    var path = btn.getAttribute('data-join-path');
+                    var url = window.location.origin + path;
+                    try {
+                        await navigator.clipboard.writeText(url);
+                        btn.textContent = 'Copied';
+                        setTimeout(function () { btn.textContent = 'Copy link'; }, 1500);
+                    } catch (e) {
+                        prompt('Copy join link:', url);
+                    }
+                });
+            });
+        </script>
     </article>
 
     <!-- Homework assignments -->
@@ -156,7 +161,7 @@
         <div class="page-intro compact">
             <div>
                 <h3 class="section-title" style="margin-top:0">Assignments</h3>
-                <p class="muted">Create homework with due dates; students submit text or a link.</p>
+                <p class="muted">Create homework with due dates; students submit text and/or a file or image.</p>
             </div>
         </div>
 
@@ -194,15 +199,20 @@
                     <td th:text="${a.dueAt != null ? #temporals.format(a.dueAt, 'yyyy-MM-dd HH:mm') : '—'}">—</td>
                     <td th:text="${a.status}">OPEN</td>
                     <td>
-                        <div style="display:flex;flex-direction:column;gap:8px;align-items:flex-start">
+                        <div class="assignment-submit-block">
                             <form th:if="${a.status == 'OPEN'}"
                                   th:action="@{/admin/classroom/assignments/{id}/submit(id=${a.uuid})}"
                                   method="post"
+                                  enctype="multipart/form-data"
                                   sec:authorize="hasAuthority('ASSIGNMENT_READ')"
-                                  style="display:flex;gap:8px;flex-wrap:wrap;align-items:end">
+                                  class="assignment-submit-form">
                                 <input type="hidden" name="classUuid" th:value="${item.uuid}">
-                                <label style="margin:0">Submit
-                                    <input name="content" required placeholder="Answer or URL" style="min-width:200px">
+                                <label>Answer / link
+                                    <input name="content" placeholder="Optional text or URL">
+                                </label>
+                                <label>File or image
+                                    <input name="file" type="file"
+                                           accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip,.csv">
                                 </label>
                                 <button type="submit" class="btn btn-soft btn-sm">Submit</button>
                             </form>

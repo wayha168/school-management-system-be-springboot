@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security"
+      th:replace="~{layout :: layout(~{::section})}">
+<body>
+<section th:fragment="section">
+    <div class="page-toolbar">
+        <div class="page-toolbar-main">
+            <div class="classes-toolbar-head">
+                <div>
+                    <h2 class="page-heading" th:text="${meeting.title}">Class call</h2>
+                    <p class="muted">
+                        Room <span th:text="${roomCode}">CODE</span>
+                        ·
+                        <span th:if="${meeting.active}" class="status-text status-active">Live</span>
+                        <span th:unless="${meeting.active}" class="muted">Ended</span>
+                        <span th:if="${meeting.recordEnabled}"> · Recording available</span>
+                    </p>
+                </div>
+                <div class="page-toolbar-actions row">
+                    <button type="button" class="btn btn-ghost" id="copy-join-link">Copy join link</button>
+                    <a class="btn btn-ghost"
+                       th:href="@{/admin/classes/{id}(id=${meeting.classUuid})}">Back to class</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <article class="panel-card video-call-panel"
+             th:attr="data-room-code=${roomCode},
+                      data-peer-id=${peerId},
+                      data-display-name=${displayName},
+                      data-meeting-id=${meeting.uuid},
+                      data-meeting-active=${meeting.active},
+                      data-can-record=${canRecord},
+                      data-can-manage=${canManage},
+                      data-has-recording=${meeting.hasRecording},
+                      data-join-path=${meeting.resolveJoinPath()}">
+
+        <div class="video-call-toolbar">
+            <button type="button" class="btn btn-dark" id="btn-join-call"
+                    th:disabled="${!meeting.active}">Join camera</button>
+            <button type="button" class="btn btn-ghost" id="btn-mute" disabled>Mute</button>
+            <button type="button" class="btn btn-ghost" id="btn-cam" disabled>Camera off</button>
+            <button type="button" class="btn btn-ghost" id="btn-leave" disabled>Leave</button>
+            <button type="button" class="btn btn-dark" id="btn-record-start"
+                    th:if="${canRecord}" disabled>Start recording</button>
+            <button type="button" class="btn btn-ghost" id="btn-record-stop"
+                    th:if="${canRecord}" disabled hidden>Stop &amp; save</button>
+            <a class="btn btn-ghost" id="btn-watch-recording"
+               th:if="${meeting.hasRecording}"
+               th:href="@{/admin/classroom/meetings/{id}/recording(id=${meeting.uuid})}"
+               target="_blank" rel="noopener">Watch recording</a>
+            <span class="muted" id="call-status">Ready</span>
+        </div>
+
+        <div class="video-grid" id="video-grid">
+            <div class="video-tile local" id="local-tile">
+                <video id="local-video" autoplay playsinline muted></video>
+                <span class="video-label" th:text="${displayName}">You</span>
+            </div>
+        </div>
+
+        <p class="muted video-call-hint">
+            Share the join link with your class. Video runs in the browser — no Meet/Zoom URL needed.
+            Recordings are stored on the server when you stop recording.
+        </p>
+    </article>
+
+    <script th:src="@{/js/video-call.js}"></script>
+</section>
+</body>
+</html>

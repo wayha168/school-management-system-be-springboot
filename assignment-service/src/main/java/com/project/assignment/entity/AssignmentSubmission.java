@@ -29,8 +29,24 @@ public class AssignmentSubmission {
     @Column(name = "student_uuid", nullable = false)
     private UUID studentUuid;
 
-    @Column(nullable = false, columnDefinition = "TEXT")
+    /** Optional text / link answer. */
+    @Column(columnDefinition = "TEXT")
     private String content;
+
+    @Column(name = "has_attachment", nullable = false)
+    private boolean hasAttachment = false;
+
+    @Column(name = "attachment_stored_name", length = 255)
+    private String attachmentStoredName;
+
+    @Column(name = "attachment_original_name", length = 255)
+    private String attachmentOriginalName;
+
+    @Column(name = "attachment_content_type", length = 120)
+    private String attachmentContentType;
+
+    @Column(name = "attachment_bytes")
+    private Long attachmentBytes;
 
     @Column(name = "submitted_at", nullable = false)
     private LocalDateTime submittedAt;

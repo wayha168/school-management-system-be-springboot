@@ -18,10 +18,8 @@ public class MeetingRequest {
     @NotBlank
     private String title;
 
-    @NotBlank
-    private String meetingUrl;
-
-    private String provider;
+    /** When true, hosts can record the call and store the video in-app. */
+    private boolean recordEnabled;
 
     private LocalDateTime scheduledAt;
 }

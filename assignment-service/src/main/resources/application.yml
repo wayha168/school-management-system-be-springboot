@@ -20,6 +20,11 @@ spring:
       mode: always
       schema-locations: classpath:schema.sql
       continue-on-error: true
+  servlet:
+    multipart:
+      max-file-size: 250MB
+      max-request-size: 260MB
+      enabled: true
 
 server:
   port: 8082
@@ -28,6 +33,10 @@ app:
   jwt:
     secret: ${APP_JWT_SECRET:school-management-jwt-secret-key-change-me-32bytes-min}
   internal-key: ${APP_INTERNAL_KEY:assignment-internal-key-change-me}
+  recordings:
+    dir: ${APP_RECORDINGS_DIR:./data/recordings}
+  submissions:
+    dir: ${APP_SUBMISSIONS_DIR:./data/submissions}
 
 springdoc:
   api-docs:

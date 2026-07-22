@@ -1,6 +1,5 @@
 package com.project.assignment.dto;
 
-import jakarta.validation.constraints.NotBlank;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -8,6 +7,6 @@ import lombok.Setter;
 @Setter
 public class SubmissionRequest {
 
-    @NotBlank
+    /** Optional text / link. Required only when no file is uploaded. */
     private String content;
 }

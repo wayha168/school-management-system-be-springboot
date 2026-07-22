@@ -7,6 +7,9 @@ import java.util.Map;
 import java.util.UUID;
 
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Controller;
@@ -16,8 +19,11 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
+import com.project.school_management.dto.classroom.MeetingResponse;
 import com.project.school_management.dto.classroom.SubmissionResponse;
 import com.project.school_management.dto.user.DataUser;
 import com.project.school_management.exception.UserNotFound;
@@ -51,23 +57,21 @@ public class ClassroomViewController {
     public String createMeeting(
             @RequestParam UUID classUuid,
             @RequestParam String title,
-            @RequestParam String meetingUrl,
-            @RequestParam(required = false) String provider,
+            @RequestParam(defaultValue = "false") boolean recordEnabled,
             @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd'T'HH:mm") LocalDateTime scheduledAt,
             RedirectAttributes ra) {
         try {
             Map<String, Object> body = new HashMap<>();
             body.put("classUuid", classUuid);
             body.put("title", title);
-            body.put("meetingUrl", meetingUrl);
-            if (provider != null && !provider.isBlank()) {
-                body.put("provider", provider.trim());
-            }
+            body.put("recordEnabled", recordEnabled);
             if (scheduledAt != null) {
                 body.put("scheduledAt", scheduledAt);
             }
-            assignmentClient.createMeeting(body);
-            ra.addFlashAttribute("success", "Class meeting created");
+            MeetingResponse created = assignmentClient.createMeeting(body);
+            String join = created.resolveJoinPath();
+            ra.addFlashAttribute("success",
+                    "Video meeting started. Join link: " + join + " (room " + created.getRoomCode() + ")");
         } catch (RuntimeException ex) {
             ra.addFlashAttribute("error", ex.getMessage());
         }
@@ -87,6 +91,61 @@ public class ClassroomViewController {
             ra.addFlashAttribute("error", ex.getMessage());
         }
         return "redirect:/admin/classes/" + classUuid;
+    }
+
+    @GetMapping("/call/{roomCode}")
+    @PreAuthorize("hasAuthority('MEETING_READ')")
+    public String joinCall(
+            @PathVariable String roomCode,
+            Authentication authentication,
+            Model model,
+            RedirectAttributes ra) {
+        try {
+            MeetingResponse meeting = assignmentClient.getMeetingByRoom(roomCode);
+            fillCommon(model, authentication, "classes", meeting.getTitle());
+            DataUser account = (DataUser) model.getAttribute("account");
+            model.addAttribute("meeting", meeting);
+            model.addAttribute("roomCode", meeting.getRoomCode());
+            model.addAttribute("peerId", account != null ? account.getUuid().toString() : UUID.randomUUID().toString());
+            model.addAttribute("displayName", account != null ? account.getName() : "Guest");
+            model.addAttribute("canRecord",
+                    meeting.isRecordEnabled() && authentication.getAuthorities().stream()
+                            .anyMatch(a -> "MEETING_WRITE".equals(a.getAuthority())));
+            model.addAttribute("canManage",
+                    authentication.getAuthorities().stream()
+                            .anyMatch(a -> "MEETING_WRITE".equals(a.getAuthority())));
+            return "pages/video-call";
+        } catch (Exception ex) {
+            ra.addFlashAttribute("error", ex.getMessage());
+            return "redirect:/admin/classes";
+        }
+    }
+
+    @PostMapping("/meetings/{id}/recording")
+    @PreAuthorize("hasAuthority('MEETING_WRITE')")
+    @ResponseBody
+    public Map<String, Object> uploadRecording(
+            @PathVariable UUID id,
+            @RequestParam("file") MultipartFile file) {
+        MeetingResponse saved = assignmentClient.uploadRecording(id, file);
+        return Map.of(
+                "success", true,
+                "message", "Recording stored",
+                "hasRecording", saved.isHasRecording(),
+                "recordingBytes", saved.getRecordingBytes() != null ? saved.getRecordingBytes() : 0L);
+    }
+
+    @GetMapping("/meetings/{id}/recording")
+    @PreAuthorize("hasAuthority('MEETING_READ')")
+    public ResponseEntity<byte[]> downloadRecording(@PathVariable UUID id) {
+        MeetingResponse meta = assignmentClient.getMeeting(id);
+        byte[] bytes = assignmentClient.downloadRecording(id);
+        String contentType = meta.getRecordingContentType() != null ? meta.getRecordingContentType() : "video/webm";
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                        "inline; filename=\"" + meta.getTitle() + "-recording.webm\"")
+                .contentType(MediaType.parseMediaType(contentType))
+                .body(bytes);
     }
 
     @PostMapping("/assignments")
@@ -135,15 +194,33 @@ public class ClassroomViewController {
     public String submitAssignment(
             @PathVariable UUID id,
             @RequestParam UUID classUuid,
-            @RequestParam String content,
+            @RequestParam(required = false) String content,
+            @RequestParam(required = false) MultipartFile file,
             RedirectAttributes ra) {
         try {
-            assignmentClient.submit(id, Map.of("content", content));
+            boolean hasText = content != null && !content.isBlank();
+            boolean hasFile = file != null && !file.isEmpty();
+            if (!hasText && !hasFile) {
+                throw new IllegalArgumentException("Add text or upload a file/image");
+            }
+            if (hasFile) {
+                assignmentClient.submitWithFile(id, content, file);
+            } else {
+                assignmentClient.submit(id, Map.of("content", content.trim()));
+            }
             ra.addFlashAttribute("success", "Submission saved");
         } catch (RuntimeException ex) {
             ra.addFlashAttribute("error", ex.getMessage());
         }
         return "redirect:/admin/classes/" + classUuid;
+    }
+
+    @GetMapping("/assignments/{assignmentId}/submissions/{submissionId}/attachment")
+    @PreAuthorize("hasAnyAuthority('ASSIGNMENT_WRITE','ASSIGNMENT_READ')")
+    public ResponseEntity<byte[]> downloadSubmissionAttachment(
+            @PathVariable UUID assignmentId,
+            @PathVariable UUID submissionId) {
+        return assignmentClient.downloadSubmissionAttachment(assignmentId, submissionId);
     }
 
     @GetMapping("/assignments/{id}/submissions")

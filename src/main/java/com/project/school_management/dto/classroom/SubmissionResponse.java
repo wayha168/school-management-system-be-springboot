@@ -17,5 +17,10 @@ public class SubmissionResponse {
     private UUID assignmentUuid;
     private UUID studentUuid;
     private String content;
+    private boolean hasAttachment;
+    private String attachmentOriginalName;
+    private String attachmentContentType;
+    private Long attachmentBytes;
+    private boolean imageAttachment;
     private LocalDateTime submittedAt;
 }

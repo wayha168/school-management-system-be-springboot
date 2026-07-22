@@ -6,18 +6,22 @@
     <div class="page-toolbar">
         <div>
             <h2 class="page-heading" th:text="${mode == 'edit'} ? 'Edit Class' : 'Add Class'">Add Class</h2>
-            <p class="muted">Assign class with grade, generation (G#), academic year, subjects, and teachers</p>
+            <p class="muted">Set school, then assign teachers and subjects</p>
         </div>
         <a class="btn btn-ghost" th:href="@{/admin/classes}">Back</a>
     </div>
+
     <article class="form-card form-card-wide">
         <form th:action="${mode == 'edit'} ? @{/admin/classes/{id}/update(id=${item.uuid})} : @{/admin/classes}"
-              method="post" class="form-grid">
+              method="post" class="form-grid" id="class-form">
+
             <label>Name
-                <input name="name" required th:value="${item != null} ? ${item.name} : ''">
+                <input name="name" required maxlength="120"
+                       th:value="${item != null} ? ${item.name} : ''">
             </label>
             <label>Grade
-                <input name="grade" placeholder="e.g. Grade 10" th:value="${item != null} ? ${item.grade} : ''">
+                <input name="grade" placeholder="e.g. Grade 10"
+                       th:value="${item != null} ? ${item.grade} : ''">
             </label>
             <label>Generation id
                 <input type="number" name="generation" required min="1" max="100"
@@ -29,8 +33,9 @@
                        placeholder="e.g. 2025"
                        th:value="${item != null} ? ${item.academicYear} : ${T(java.time.Year).now().value}">
             </label>
-            <label class="span-2">School
-                <select name="schoolUuid" required>
+
+            <label class="span-3">School
+                <select name="schoolUuid" id="class-school" required>
                     <option value="" disabled th:selected="${item == null}">Select school</option>
                     <option th:each="school : ${schools}"
                             th:value="${school.uuid}"
@@ -39,63 +44,51 @@
                 </select>
             </label>
 
-            <label class="span-3">Belongs to (teachers)
-                <select name="teacherUuids" multiple size="6" aria-label="Assign teachers">
-                    <option th:each="t : ${teachers}"
-                            th:value="${t.uuid}"
-                            th:text="${t.name + ' · ' + t.email}"
-                            th:selected="${item != null and item.teacherUuids != null and item.teacherUuids.contains(t.uuid)}">
-                        Teacher
-                    </option>
-                </select>
-                <small class="muted">Hold Ctrl (Windows) or Cmd (Mac) to select multiple teachers. This class will belong to the selected teachers.</small>
-            </label>
+            <div class="span-3 class-assign-block">
+                <div class="class-assign-head">
+                    <div>
+                        <strong>Teachers</strong>
+                        <p class="muted">Shown for the selected school. Check one or more.</p>
+                    </div>
+                    <span class="muted" id="teacher-count">0 selected</span>
+                </div>
+                <div class="class-pick-list" id="teacher-pick-list">
+                    <label class="class-pick-item"
+                           th:each="t : ${teachers}"
+                           th:attr="data-school-uuid=${t.schoolUuid}">
+                        <input type="checkbox" name="teacherUuids"
+                               th:value="${t.uuid}"
+                               th:checked="${item != null and item.teacherUuids != null and item.teacherUuids.contains(t.uuid)}">
+                        <span class="class-pick-body">
+                            <strong th:text="${t.name}">Teacher</strong>
+                            <small class="muted" th:text="${t.email}">email</small>
+                        </span>
+                    </label>
+                    <p class="muted class-pick-empty" id="teacher-pick-empty" hidden>
+                        Select a school to see teachers, or no teachers for this school.
+                    </p>
+                </div>
+            </div>
 
-            <div class="span-3">
-                <div class="page-toolbar" style="margin:8px 0 10px; padding:0">
+            <div class="span-3 class-assign-block">
+                <div class="class-assign-head">
                     <div>
                         <strong>Subjects</strong>
-                        <p class="muted" style="margin:4px 0 0">Subjects for this class (used in score session table)</p>
+                        <p class="muted">Used in score sessions for this class.</p>
                     </div>
                     <button type="button" class="btn btn-ghost btn-sm" id="add-subject-row">Add subject</button>
                 </div>
-                <div class="table-wrap">
-                    <table class="data-table" id="class-subjects-table">
-                        <thead>
-                        <tr>
-                            <th style="width:56px">#</th>
-                            <th>Subject</th>
-                            <th style="width:90px">Actions</th>
-                        </tr>
-                        </thead>
-                        <tbody>
-                        <tr th:each="subj, iter : ${item?.subjects}"
-                            class="subject-row">
-                            <td class="subject-index" th:text="${iter.count}">1</td>
-                            <td>
-                                <input type="text" name="subjects"
-                                       th:value="${subj}" placeholder="e.g. Math" style="margin:0">
-                            </td>
-                            <td>
-                                <button type="button" class="icon-action danger remove-subject-row" title="Remove">
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
-                                </button>
-                            </td>
-                        </tr>
-                        <tr th:if="${item == null or item.subjects == null or #lists.isEmpty(item.subjects)}"
-                            class="subject-row">
-                            <td class="subject-index">1</td>
-                            <td>
-                                <input type="text" name="subjects" placeholder="e.g. Math" style="margin:0">
-                            </td>
-                            <td>
-                                <button type="button" class="icon-action danger remove-subject-row" title="Remove">
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
-                                </button>
-                            </td>
-                        </tr>
-                        </tbody>
-                    </table>
+                <div class="class-subject-list" id="class-subjects-list">
+                    <div class="class-subject-row" th:each="subj : ${item?.subjects}">
+                        <input type="text" name="subjects" th:value="${subj}"
+                               placeholder="e.g. Math" maxlength="80" autocomplete="off">
+                        <button type="button" class="btn btn-ghost btn-sm remove-subject-row" title="Remove">Remove</button>
+                    </div>
+                    <div class="class-subject-row"
+                         th:if="${item == null or item.subjects == null or #lists.isEmpty(item.subjects)}">
+                        <input type="text" name="subjects" placeholder="e.g. Math" maxlength="80" autocomplete="off">
+                        <button type="button" class="btn btn-ghost btn-sm remove-subject-row" title="Remove">Remove</button>
+                    </div>
                 </div>
             </div>
 
@@ -107,55 +100,73 @@
     </article>
 
     <template id="subject-row-template">
-        <tr class="subject-row">
-            <td class="subject-index">1</td>
-            <td>
-                <input type="text" name="subjects" placeholder="e.g. Math" style="margin:0">
-            </td>
-            <td>
-                <button type="button" class="icon-action danger remove-subject-row" title="Remove">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
-                </button>
-            </td>
-        </tr>
+        <div class="class-subject-row">
+            <input type="text" name="subjects" placeholder="e.g. Math" maxlength="80" autocomplete="off">
+            <button type="button" class="btn btn-ghost btn-sm remove-subject-row" title="Remove">Remove</button>
+        </div>
     </template>
 
     <script>
         (function () {
-            const table = document.getElementById('class-subjects-table');
-            const tbody = table && table.querySelector('tbody');
-            const template = document.getElementById('subject-row-template');
-            const addBtn = document.getElementById('add-subject-row');
-            if (!tbody || !template || !addBtn) return;
+            const schoolSelect = document.getElementById('class-school');
+            const pickList = document.getElementById('teacher-pick-list');
+            const emptyEl = document.getElementById('teacher-pick-empty');
+            const countEl = document.getElementById('teacher-count');
+            const subjectList = document.getElementById('class-subjects-list');
+            const subjectTemplate = document.getElementById('subject-row-template');
+            const addSubjectBtn = document.getElementById('add-subject-row');
+            if (!schoolSelect || !pickList) return;
 
-            function reindex() {
-                tbody.querySelectorAll('.subject-row').forEach((row, i) => {
-                    const idx = row.querySelector('.subject-index');
-                    if (idx) idx.textContent = String(i + 1);
-                });
+            function updateTeacherCount() {
+                const n = pickList.querySelectorAll('.class-pick-item:not([hidden]) input[type="checkbox"]:checked').length;
+                if (countEl) countEl.textContent = n + ' selected';
             }
 
-            addBtn.addEventListener('click', () => {
-                const node = template.content.cloneNode(true);
-                tbody.appendChild(node);
-                reindex();
-                const input = tbody.querySelector('.subject-row:last-child input[name="subjects"]');
-                if (input) input.focus();
-            });
+            function filterTeachers() {
+                const schoolId = schoolSelect.value || '';
+                let visible = 0;
+                pickList.querySelectorAll('.class-pick-item').forEach((item) => {
+                    const itemSchool = item.getAttribute('data-school-uuid') || '';
+                    const match = schoolId !== '' && itemSchool === schoolId;
+                    item.hidden = !match;
+                    if (!match) {
+                        const cb = item.querySelector('input[type="checkbox"]');
+                        if (cb) cb.checked = false;
+                    } else {
+                        visible += 1;
+                    }
+                });
+                if (emptyEl) emptyEl.hidden = visible > 0;
+                updateTeacherCount();
+            }
 
-            tbody.addEventListener('click', (e) => {
-                const btn = e.target.closest('.remove-subject-row');
-                if (!btn) return;
-                const row = btn.closest('.subject-row');
-                if (!row) return;
-                if (tbody.querySelectorAll('.subject-row').length === 1) {
-                    const input = row.querySelector('input[name="subjects"]');
-                    if (input) input.value = '';
-                    return;
-                }
-                row.remove();
-                reindex();
+            schoolSelect.addEventListener('change', filterTeachers);
+            pickList.addEventListener('change', (e) => {
+                if (e.target && e.target.matches('input[type="checkbox"]')) updateTeacherCount();
             });
+            filterTeachers();
+
+            if (subjectList && subjectTemplate && addSubjectBtn) {
+                addSubjectBtn.addEventListener('click', () => {
+                    subjectList.appendChild(subjectTemplate.content.cloneNode(true));
+                    const input = subjectList.querySelector('.class-subject-row:last-child input[name="subjects"]');
+                    if (input) input.focus();
+                });
+
+                subjectList.addEventListener('click', (e) => {
+                    const btn = e.target.closest('.remove-subject-row');
+                    if (!btn) return;
+                    const row = btn.closest('.class-subject-row');
+                    if (!row) return;
+                    const rows = subjectList.querySelectorAll('.class-subject-row');
+                    if (rows.length === 1) {
+                        const input = row.querySelector('input[name="subjects"]');
+                        if (input) input.value = '';
+                        return;
+                    }
+                    row.remove();
+                });
+            }
         })();
     </script>
 </section>

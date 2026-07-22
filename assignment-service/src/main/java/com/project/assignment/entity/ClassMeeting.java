@@ -27,11 +27,34 @@ public class ClassMeeting {
     @Column(nullable = false, length = 200)
     private String title;
 
+    /** Short code used in the generated join link. */
+    @Column(name = "room_code", unique = true, length = 16)
+    private String roomCode;
+
+    /** App-relative join path, e.g. /admin/classroom/call/{roomCode}. */
     @Column(name = "meeting_url", nullable = false, length = 1000)
     private String meetingUrl;
 
     @Column(nullable = false, length = 20)
-    private String provider = "OTHER";
+    private String provider = "NATIVE";
+
+    @Column(name = "record_enabled", nullable = false)
+    private boolean recordEnabled = false;
+
+    @Column(name = "has_recording", nullable = false)
+    private boolean hasRecording = false;
+
+    @Column(name = "recording_stored_name", length = 255)
+    private String recordingStoredName;
+
+    @Column(name = "recording_content_type", length = 100)
+    private String recordingContentType;
+
+    @Column(name = "recording_bytes")
+    private Long recordingBytes;
+
+    @Column(name = "recorded_at")
+    private LocalDateTime recordedAt;
 
     @Column(name = "scheduled_at")
     private LocalDateTime scheduledAt;

@@ -10,6 +10,7 @@ import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -54,6 +55,18 @@ public class AssignmentClient {
                 });
     }
 
+    public MeetingResponse getMeetingByRoom(String roomCode) {
+        return get("/api/v1/meetings/by-room/" + roomCode,
+                new ParameterizedTypeReference<AssignmentApiResponse<MeetingResponse>>() {
+                });
+    }
+
+    public MeetingResponse getMeeting(UUID id) {
+        return get("/api/v1/meetings/" + id,
+                new ParameterizedTypeReference<AssignmentApiResponse<MeetingResponse>>() {
+                });
+    }
+
     public List<MeetingResponse> listMeetings(UUID classUuid) {
         List<MeetingResponse> data = get(
                 "/api/v1/meetings?classUuid=" + classUuid,
@@ -66,6 +79,46 @@ public class AssignmentClient {
         return post("/api/v1/meetings/" + id + "/end", Map.of(),
                 new ParameterizedTypeReference<AssignmentApiResponse<MeetingResponse>>() {
                 });
+    }
+
+    public MeetingResponse uploadRecording(UUID meetingId, org.springframework.web.multipart.MultipartFile file) {
+        try {
+            var body = new org.springframework.util.LinkedMultiValueMap<String, Object>();
+            body.add("file", file.getResource());
+            AssignmentApiResponse<MeetingResponse> response = client().post()
+                    .uri("/api/v1/meetings/" + meetingId + "/recording")
+                    .headers(this::applyCallerHeaders)
+                    .contentType(MediaType.MULTIPART_FORM_DATA)
+                    .body(body)
+                    .retrieve()
+                    .body(new ParameterizedTypeReference<AssignmentApiResponse<MeetingResponse>>() {
+                    });
+            return unwrap(response);
+        } catch (RestClientResponseException ex) {
+            throw translate(ex);
+        } catch (RestClientException ex) {
+            throw new IllegalStateException(
+                    "Cannot reach assignment service at " + properties.getBaseUrl() + ": " + ex.getMessage(), ex);
+        }
+    }
+
+    public byte[] downloadRecording(UUID meetingId) {
+        try {
+            byte[] bytes = client().get()
+                    .uri("/api/v1/meetings/" + meetingId + "/recording")
+                    .headers(this::applyCallerHeaders)
+                    .retrieve()
+                    .body(byte[].class);
+            if (bytes == null) {
+                throw new ExceptionNotFound("Recording not found");
+            }
+            return bytes;
+        } catch (RestClientResponseException ex) {
+            throw translate(ex);
+        } catch (RestClientException ex) {
+            throw new IllegalStateException(
+                    "Cannot reach assignment service at " + properties.getBaseUrl() + ": " + ex.getMessage(), ex);
+        }
     }
 
     public HomeworkAssignmentResponse createAssignment(Map<String, Object> body) {
@@ -92,6 +145,60 @@ public class AssignmentClient {
         return post("/api/v1/assignments/" + assignmentId + "/submit", body,
                 new ParameterizedTypeReference<AssignmentApiResponse<SubmissionResponse>>() {
                 });
+    }
+
+    public SubmissionResponse submitWithFile(UUID assignmentId, String content,
+            org.springframework.web.multipart.MultipartFile file) {
+        try {
+            var body = new org.springframework.util.LinkedMultiValueMap<String, Object>();
+            if (content != null && !content.isBlank()) {
+                body.add("content", content.trim());
+            }
+            if (file != null && !file.isEmpty()) {
+                String filename = file.getOriginalFilename() != null ? file.getOriginalFilename() : "upload.bin";
+                body.add("file", new org.springframework.core.io.ByteArrayResource(file.getBytes()) {
+                    @Override
+                    public String getFilename() {
+                        return filename;
+                    }
+                });
+            }
+            AssignmentApiResponse<SubmissionResponse> response = client().post()
+                    .uri("/api/v1/assignments/" + assignmentId + "/submit")
+                    .headers(this::applyCallerHeaders)
+                    .contentType(MediaType.MULTIPART_FORM_DATA)
+                    .body(body)
+                    .retrieve()
+                    .body(new ParameterizedTypeReference<AssignmentApiResponse<SubmissionResponse>>() {
+                    });
+            return unwrap(response);
+        } catch (java.io.IOException ex) {
+            throw new IllegalStateException("Failed to read upload: " + ex.getMessage(), ex);
+        } catch (RestClientResponseException ex) {
+            throw translate(ex);
+        } catch (RestClientException ex) {
+            throw new IllegalStateException(
+                    "Cannot reach assignment service at " + properties.getBaseUrl() + ": " + ex.getMessage(), ex);
+        }
+    }
+
+    public ResponseEntity<byte[]> downloadSubmissionAttachment(UUID assignmentId, UUID submissionId) {
+        try {
+            ResponseEntity<byte[]> entity = client().get()
+                    .uri("/api/v1/assignments/" + assignmentId + "/submissions/" + submissionId + "/attachment")
+                    .headers(this::applyCallerHeaders)
+                    .retrieve()
+                    .toEntity(byte[].class);
+            if (entity.getBody() == null) {
+                throw new ExceptionNotFound("Attachment not found");
+            }
+            return entity;
+        } catch (RestClientResponseException ex) {
+            throw translate(ex);
+        } catch (RestClientException ex) {
+            throw new IllegalStateException(
+                    "Cannot reach assignment service at " + properties.getBaseUrl() + ": " + ex.getMessage(), ex);
+        }
     }
 
     public List<SubmissionResponse> listSubmissions(UUID assignmentId) {

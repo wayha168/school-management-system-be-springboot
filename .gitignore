@@ -33,3 +33,7 @@ build/
 .vscode/
 .cursor/*/
 .cursor/
+
+### Local runtime data ###
+data/
+assignment-service/data/

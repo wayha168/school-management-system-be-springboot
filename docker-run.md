@@ -14,3 +14,7 @@
 #   school-management
 #   school-assessment
 #   school-assignment
+#
+# Classroom video: create call on class detail (no Meet/Zoom URL).
+# Join path: /admin/classroom/call/{roomCode}
+# Recordings volume: assignment-recordings → /data/recordings
